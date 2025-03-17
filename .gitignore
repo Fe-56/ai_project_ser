@@ -1,6 +1,5 @@
 data/dataset/
 data/melspectrograms/
-data/melspectrogram_test_dataset.csv
-data/melspectrogram_train_dataset.csv
 data/speech_dataset.csv
 data/report.html
+/myenv
