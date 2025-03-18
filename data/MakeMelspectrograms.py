@@ -4,6 +4,7 @@ import numpy as np
 import matplotlib.pyplot as plt
 import librosa
 import librosa.display
+from tinytag import TinyTag
 from tqdm import tqdm
 from multiprocessing import Pool, cpu_count
 import traceback
@@ -32,12 +33,12 @@ os.makedirs('checkpoints', exist_ok=True)
 
 
 # Find max audio duration to pad all audios to the same length
-def find_max_duration(paths, target_sr=TARGET_SR):
+def find_max_duration(paths):
     max_duration = 0
     for path in tqdm(paths, desc="Finding max duration"):
         try:
-            y, sr = librosa.load(path, sr=target_sr)
-            max_duration = max(max_duration, librosa.get_duration(y=y, sr=sr))
+            tag = TinyTag.get(path)
+            max_duration = max(max_duration, tag.duration)
         except Exception as e:
             print(f"Error processing {path}: {e}")
     return max_duration
