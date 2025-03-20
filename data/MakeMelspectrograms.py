@@ -14,7 +14,7 @@ import functools
 
 # Set parameters for parallel and batch processing with checkpoints
 NUM_PROCESSES = None
-BATCH_SIZE = 500
+BATCH_SIZE = 1000
 
 # Set consistent audio processing parameters
 TARGET_SR = 16000  # Target sample rate
@@ -86,6 +86,7 @@ def create_melspectrogram(path, target_sr, max_duration, hop_length, n_fft, n_me
         spectrogram_path = os.path.join('melspectrograms', filename)
 
         plt.figure(figsize=(10, 4))
+        plt.subplots_adjust(left=0, right=1, top=1, bottom=0)
         plt.axis('off')
         librosa.display.specshow(
             melspectrogramdb, 
@@ -96,7 +97,7 @@ def create_melspectrogram(path, target_sr, max_duration, hop_length, n_fft, n_me
             fmin=fmin,
             fmax=fmax
         )
-        plt.savefig(spectrogram_path, bbox_inches='tight')
+        plt.savefig(spectrogram_path, bbox_inches='tight', pad_inches=0)
         plt.close()
 
         return {'path': path, 'spectrogram_path': spectrogram_path, 'status': 'success'}
