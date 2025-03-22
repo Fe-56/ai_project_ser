@@ -1,4 +1,5 @@
 data/dataset/
 data/melspectrograms/
 data/report.html
+data/checkpoints
 /myenv
