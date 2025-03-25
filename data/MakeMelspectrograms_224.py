@@ -85,7 +85,8 @@ def create_melspectrogram(path, target_sr, max_duration, hop_length, n_fft, n_me
 
         spectrogram_path = os.path.join('melspectrograms', filename)
 
-        plt.figure(figsize=(10, 4))
+        # 224x224 to fit ResNet50 and VGG16 pre-trained CNN models
+        plt.figure(figsize=(2.24, 2.24))
         plt.subplots_adjust(left=0, right=1, top=1, bottom=0)
         plt.axis('off')
         librosa.display.specshow(
@@ -97,7 +98,8 @@ def create_melspectrogram(path, target_sr, max_duration, hop_length, n_fft, n_me
             fmin=fmin,
             fmax=fmax
         )
-        plt.savefig(spectrogram_path, bbox_inches='tight', pad_inches=0)
+        plt.savefig(spectrogram_path, dpi=100,  # DPI of 100 to maintain the 224x224 pixel output
+                    bbox_inches='tight', pad_inches=0)
         plt.close()
 
         return {'path': path, 'spectrogram_path': spectrogram_path, 'status': 'success'}
@@ -236,8 +238,8 @@ def main():
     test = test[['Filepath', 'Emotion']]
 
     # Fix file paths if needed
-    # train['Filepath'] = train['Filepath'].str.replace('\\', '/')
-    # test['Filepath'] = test['Filepath'].str.replace('\\', '/')
+    train['Filepath'] = train['Filepath'].str.replace('\\', '/')
+    test['Filepath'] = test['Filepath'].str.replace('\\', '/')
 
     all_paths = pd.concat(
         [train['Filepath'], test['Filepath']], ignore_index=True)
