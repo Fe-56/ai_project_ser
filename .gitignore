@@ -3,3 +3,4 @@ data/melspectrograms/
 data/report.html
 data/checkpoints
 /myenv
+wav2vec2/models
