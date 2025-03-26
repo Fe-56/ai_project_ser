@@ -3,6 +3,5 @@ data/melspectrograms/
 data/report.html
 data/checkpoints
 /myenv
-data/zip/
+wav2vec2/models
 data/melspectrogram_tensors/
-*.pyc
