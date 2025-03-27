@@ -58,17 +58,17 @@ def create_melspectrogram(path, target_sr, max_duration, hop_length, n_fft, n_me
             target_length = int(max_duration * sr)
             if len(y) < target_length:
                 y = np.pad(y, (0, target_length - len(y)), mode='constant')
-        
+
         # Compute hop length based on target_sr if not provided
         if hop_length is None:
             hop_length = int(0.01 * sr)  # 10ms hop
 
         # Generate mel spectrogram with consistent parameters
         melspectrogram = librosa.feature.melspectrogram(
-            y=y, 
-            sr=sr, 
-            n_fft=n_fft, 
-            hop_length=hop_length, 
+            y=y,
+            sr=sr,
+            n_fft=n_fft,
+            hop_length=hop_length,
             n_mels=n_mels,
             fmin=fmin,
             fmax=fmax,
@@ -89,10 +89,10 @@ def create_melspectrogram(path, target_sr, max_duration, hop_length, n_fft, n_me
         plt.subplots_adjust(left=0, right=1, top=1, bottom=0)
         plt.axis('off')
         librosa.display.specshow(
-            melspectrogramdb, 
-            sr=sr, 
-            hop_length=hop_length, 
-            x_axis='time', 
+            melspectrogramdb,
+            sr=sr,
+            hop_length=hop_length,
+            x_axis='time',
             y_axis='mel',
             fmin=fmin,
             fmax=fmax
@@ -109,7 +109,8 @@ def create_melspectrogram(path, target_sr, max_duration, hop_length, n_fft, n_me
 
 def save_checkpoint(batch_id, results, checkpoint_dir='checkpoints'):
     """Save processing results to a checkpoint file"""
-    checkpoint_file = os.path.join(checkpoint_dir, f'batch_{batch_id}_checkpoint.pkl')
+    checkpoint_file = os.path.join(
+        checkpoint_dir, f'batch_{batch_id}_checkpoint.pkl')
     with open(checkpoint_file, 'wb') as f:
         pickle.dump(results, f)
     return checkpoint_file
@@ -124,7 +125,8 @@ def load_checkpoint(checkpoint_file):
 def get_all_checkpoint_results(checkpoint_dir='checkpoints'):
     """Load all checkpoint results"""
     all_results = []
-    checkpoint_files = [f for f in os.listdir(checkpoint_dir) if f.endswith('_checkpoint.pkl')]
+    checkpoint_files = [f for f in os.listdir(
+        checkpoint_dir) if f.endswith('_checkpoint.pkl')]
 
     for cf in checkpoint_files:
         try:
@@ -157,7 +159,8 @@ def create_melspectrograms_in_batches(paths, max_duration, batch_size=BATCH_SIZE
             for result in existing_results:
                 processed_paths.add(result['path'])
 
-            print(f"Resuming from checkpoints: {len(processed_paths)} files already processed")
+            print(
+                f"Resuming from checkpoints: {len(processed_paths)} files already processed")
         except Exception as e:
             print(f"Error loading checkpoints: {e}. Starting fresh.")
             all_results = []
@@ -168,9 +171,9 @@ def create_melspectrograms_in_batches(paths, max_duration, batch_size=BATCH_SIZE
 
     # Create a partial function with the fixed parameters
     process_func = functools.partial(
-        create_melspectrogram, 
+        create_melspectrogram,
         target_sr=TARGET_SR,
-        max_duration=max_duration, 
+        max_duration=max_duration,
         hop_length=HOP_LENGTH,
         n_fft=N_FFT,
         n_mels=N_MELS,
@@ -203,9 +206,11 @@ def create_melspectrograms_in_batches(paths, max_duration, batch_size=BATCH_SIZE
         all_results.extend(batch_results)
 
         # Print batch summary
-        success_count = sum(1 for r in batch_results if r['status'] == 'success')
+        success_count = sum(
+            1 for r in batch_results if r['status'] == 'success')
         error_count = len(batch_results) - success_count
-        print(f"Batch {batch_idx+1} complete: {success_count} succeeded, {error_count} failed")
+        print(
+            f"Batch {batch_idx+1} complete: {success_count} succeeded, {error_count} failed")
 
     return all_results
 
@@ -215,7 +220,8 @@ def main():
     print("\nMel Spectrogram Parameters:")
     print(f"Sample Rate: {TARGET_SR} Hz")
     print(f"FFT Window Size: {N_FFT}")
-    print(f"Hop Length: {HOP_LENGTH} samples ({HOP_LENGTH/TARGET_SR*1000:.1f} ms)")
+    print(
+        f"Hop Length: {HOP_LENGTH} samples ({HOP_LENGTH/TARGET_SR*1000:.1f} ms)")
     print(f"Window Type: {WINDOW_TYPE}")
     print(f"Mel Bands: {N_MELS}")
     print(f"Frequency Range: {FMIN} Hz - {FMAX} Hz")
@@ -233,7 +239,8 @@ def main():
     # train['Filepath'] = train['Filepath'].str.replace('\\', '/')
     # test['Filepath'] = test['Filepath'].str.replace('\\', '/')
 
-    all_paths = pd.concat([train['Filepath'], test['Filepath']], ignore_index=True)
+    all_paths = pd.concat(
+        [train['Filepath'], test['Filepath']], ignore_index=True)
     max_duration = find_max_duration(all_paths)
     print(f"Maximum duration of audio: {max_duration}s")
 
@@ -266,7 +273,8 @@ def main():
 
     print("\nProcessing complete!")
     print(f"Total files processed: {len(results)}")
-    print(f"Successful: {success_count} ({success_count/len(results)*100:.1f}%)")
+    print(
+        f"Successful: {success_count} ({success_count/len(results)*100:.1f}%)")
     print(f"Failed: {error_count} ({error_count/len(results)*100:.1f}%)")
     print(f"Results saved to melspectrogram_train_dataset.csv")
 
@@ -282,7 +290,8 @@ def main():
     )
 
     # Create a mapping from paths to spectrograms
-    test_path_to_spec = {r['path']: r['spectrogram_path'] for r in test_results}
+    test_path_to_spec = {r['path']: r['spectrogram_path']
+                         for r in test_results}
 
     # Update the test dataframe
     test['Melspectrogrampath'] = test['Filepath'].map(test_path_to_spec)
@@ -291,13 +300,16 @@ def main():
     test.to_csv('melspectrogram_test_dataset.csv', index=False)
 
     # Calculate and print statistics
-    test_success_count = sum(1 for r in test_results if r['status'] == 'success')
+    test_success_count = sum(
+        1 for r in test_results if r['status'] == 'success')
     test_error_count = sum(1 for r in test_results if r['status'] == 'error')
 
     print("\nTest processing complete!")
     print(f"Total test files processed: {len(test_results)}")
-    print(f"Successful: {test_success_count} ({test_success_count/len(test_results)*100:.1f}%)")
-    print(f"Failed: {test_error_count} ({test_error_count/len(test_results)*100:.1f}%)")
+    print(
+        f"Successful: {test_success_count} ({test_success_count/len(test_results)*100:.1f}%)")
+    print(
+        f"Failed: {test_error_count} ({test_error_count/len(test_results)*100:.1f}%)")
     print(f"Results saved to melspectrogram_test_dataset.csv")
 
 
