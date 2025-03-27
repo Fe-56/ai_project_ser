@@ -6,5 +6,6 @@ data/checkpoints
 wav2vec2/models
 data/melspectrogram_tensors/
 *.pyc
-cnn scripts/vgg16/best_vgg16.pt
-cnn scripts/vgg16/vgg16_variables_25.pt
+
+# because they are too big in size
+cnn_scripts/models/vgg16/*.pt
