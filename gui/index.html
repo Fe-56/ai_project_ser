@@ -1,0 +1,166 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Emotion Prediction</title>
+
+    <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0-alpha1/dist/css/bootstrap.min.css" rel="stylesheet">
+
+    <script src="https://cdn.jsdelivr.net/npm/wavesurfer.js"></script>
+
+    <style>
+        #audio-player-container {
+            display: none;
+            margin-top: 20px;
+        }
+
+        #emotion-display {
+            margin-top: 20px;
+            font-size: 1.2rem;
+            font-weight: bold;
+        }
+
+        .play-button {
+            padding: 10px 20px;
+            margin-top: 10px;
+            cursor: pointer;
+            background-color: #4CAF50;
+            color: white;
+            border: none;
+            border-radius: 5px;
+            font-size: 16px;
+        }
+
+        .loader {
+            display: none;  
+            position: absolute;
+            top: 50%;
+            left: 50%;
+            transform: translate(-50%, -50%); 
+            z-index: 9999;  
+        }
+
+        .loading-spinner {
+            width: 3rem;
+            height: 3rem;
+            border: 0.25em solid rgba(0, 0, 0, 0.1);
+            border-top: 0.25em solid #007bff;
+            border-radius: 50%;
+            animation: spin 1s linear infinite;
+        }
+
+        @keyframes spin {
+            0% { transform: rotate(0deg); }
+            100% { transform: rotate(360deg); }
+        }
+    </style>
+</head>
+<body class="bg-light">
+
+    <div class="container py-5">
+        <h1 class="text-center mb-4">Emotion Prediction for Audio</h1>
+
+        <div class="card p-4 shadow-sm mx-auto" style="max-width: 500px;">
+            <form id="audio-form">
+                <div class="mb-3">
+                    <label for="audio-file" class="form-label">Upload Audio File</label>
+                    <input type="file" class="form-control" id="audio-file" name="audio_file" accept="audio/*" required>
+                </div>
+                <div class="d-grid gap-2">
+                    <button type="submit" class="btn btn-primary">Submit</button>
+                </div>
+            </form>
+        </div>
+
+        <div id="loader" class="loader text-center">
+            <div class="loading-spinner"></div>
+        </div>
+
+        <div id="audio-player-container" class="text-center">
+            <div id="waveform" class="mx-auto" style="width: 100%; max-width: 700px;"></div>
+            <button id="play-button" class="play-button">Play</button>
+            <div id="emotion-display" class="text-muted">Emotion: <span id="current-emotion">None</span></div>
+        </div>
+    </div>
+
+    <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0-alpha1/dist/js/bootstrap.bundle.min.js"></script>
+
+    <script>
+        const audioForm = document.getElementById('audio-form');
+        const audioFileInput = document.getElementById('audio-file');
+        const loader = document.getElementById('loader');
+        const audioPlayerContainer = document.getElementById('audio-player-container');
+        const emotionDisplay = document.getElementById('emotion-display');
+        const playButton = document.getElementById('play-button');
+        const currentEmotion = document.getElementById('current-emotion');
+        let audioFile;
+        let predictions = [];
+        let waveSurfer;
+
+        audioFileInput.addEventListener('change', (event) => {
+            audioFile = event.target.files[0];
+        });
+
+        audioForm.addEventListener('submit', async (event) => {
+            event.preventDefault();
+            if (!audioFile) return;
+
+            loader.style.display = 'block'; 
+            if (waveSurfer) {
+                waveSurfer.destroy();  
+            }
+
+            const formData = new FormData();
+            formData.append('audio_file', audioFile);
+
+            const response = await fetch('http://127.0.0.1:5000/predict_emotion', {
+                method: 'POST',
+                body: formData
+            });
+
+            if (response.ok) {
+                const data = await response.json();
+                predictions = data.predictions;
+
+                waveSurfer = WaveSurfer.create({
+                    container: '#waveform',
+                    waveColor: 'blue',
+                    progressColor: 'green',
+                    backend: 'MediaElement',
+                    barWidth: 2,
+                    height: 150,
+                    responsive: true
+                });
+
+                const audioURL = URL.createObjectURL(audioFile);
+                waveSurfer.load(audioURL);
+                waveSurfer.on('ready', () => {
+                    audioPlayerContainer.style.display = 'block';
+                    loader.style.display = 'none'; 
+                });
+
+                waveSurfer.on('audioprocess', () => {
+                    const currentTime = waveSurfer.getCurrentTime();
+                    const currentSegment = predictions.find(pred => currentTime >= pred.start_time && currentTime < pred.end_time);
+                    if (currentSegment) {
+                        currentEmotion.textContent = currentSegment.emotion;
+                    }
+                });
+                playButton.addEventListener('click', () => {
+                    if (waveSurfer.isPlaying()) {
+                        waveSurfer.pause();
+                        playButton.textContent = 'Play';
+                    } else {
+                        waveSurfer.play();
+                        playButton.textContent = 'Pause';
+                    }
+                });
+            } else {
+                loader.style.display = 'none';
+                alert('Error: Could not process audio');
+            }
+        });
+    </script>
+</body>
+</html>
