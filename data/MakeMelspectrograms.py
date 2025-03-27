@@ -225,15 +225,17 @@ def main():
     # Load datasets
     print("Loading datasets...")
     train = pd.read_csv('train_dataset.csv')
+    val = pd.read_csv('val_dataset.csv')
     test = pd.read_csv('test_dataset.csv')
     train = train[['Filepath', 'Emotion']]
+    val = val[['Filepath', 'Emotion']]
     test = test[['Filepath', 'Emotion']]
 
     # Fix file paths if needed
     # train['Filepath'] = train['Filepath'].str.replace('\\', '/')
     # test['Filepath'] = test['Filepath'].str.replace('\\', '/')
 
-    all_paths = pd.concat([train['Filepath'], test['Filepath']], ignore_index=True)
+    all_paths = pd.concat([train['Filepath'], val['Filepath'], test['Filepath']], ignore_index=True)
     max_duration = find_max_duration(all_paths)
     print(f"Maximum duration of audio: {max_duration}s")
 
@@ -258,6 +260,7 @@ def main():
     train['Melspectrogrampath'] = train['Filepath'].map(path_to_spec)
 
     # Save the updated dataframes
+    train = train[['Filepath', 'Melspectrogrampath', 'Emotion']]
     train.to_csv('melspectrogram_train_dataset.csv', index=False)
 
     # Calculate and print statistics
@@ -269,6 +272,39 @@ def main():
     print(f"Successful: {success_count} ({success_count/len(results)*100:.1f}%)")
     print(f"Failed: {error_count} ({error_count/len(results)*100:.1f}%)")
     print(f"Results saved to melspectrogram_train_dataset.csv")
+    
+    
+    # Generate melspectrograms for the val set
+    val_paths = val['Filepath'].tolist()
+    print(f"Processing {len(val_paths)} test files...")
+    val_results = create_melspectrograms_in_batches(
+        paths=val_paths,
+        max_duration=max_duration,
+        batch_size=BATCH_SIZE,  # Adjust based on your dataset size and memory constraints
+        n_processes=NUM_PROCESSES,  # Will use 75% of available cores by default
+        resume=True  # Set to False to start fresh and ignore checkpoints
+    )
+
+    # Create a mapping from paths to spectrograms
+    val_path_to_spec = {r['path']: r['spectrogram_path'] for r in val_results}
+
+    # Update the test dataframe
+    val['Melspectrogrampath'] = val['Filepath'].map(val_path_to_spec)
+
+    # Save the updated test dataframe
+    val = val[['Filepath', 'Melspectrogrampath', 'Emotion']]
+    val.to_csv('melspectrogram_val_dataset.csv', index=False)
+
+    # Calculate and print statistics
+    val_success_count = sum(1 for r in val_results if r['status'] == 'success')
+    val_error_count = sum(1 for r in val_results if r['status'] == 'error')
+
+    print("\nTest processing complete!")
+    print(f"Total test files processed: {len(val_results)}")
+    print(f"Successful: {val_success_count} ({val_success_count/len(val_results)*100:.1f}%)")
+    print(f"Failed: {val_error_count} ({val_error_count/len(val_results)*100:.1f}%)")
+    print(f"Results saved to melspectrogram_val_dataset.csv")
+    
 
     # Generate melspectrograms for the test set
     test_paths = test['Filepath'].tolist()
@@ -288,6 +324,7 @@ def main():
     test['Melspectrogrampath'] = test['Filepath'].map(test_path_to_spec)
 
     # Save the updated test dataframe
+    test = test[['Filepath', 'Melspectrogrampath', 'Emotion']]
     test.to_csv('melspectrogram_test_dataset.csv', index=False)
 
     # Calculate and print statistics
