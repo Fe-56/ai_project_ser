@@ -4,8 +4,5 @@ data/report.html
 data/checkpoints
 /myenv
 wav2vec2/models
-data/melspectrogram_tensors/
 *.pyc
-
-# because they are too big in size
-cnn_scripts/models/vgg16/*.pt
+*.pt
