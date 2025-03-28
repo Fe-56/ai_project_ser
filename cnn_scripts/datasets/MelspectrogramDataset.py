@@ -5,6 +5,8 @@ from PIL import Image
 import torch
 
 # Custom dataset class for loading Melspectrograms
+
+
 class MelSpectrogramDataset(Dataset):
     def __init__(self, csv_file, root_dir, transform=None):
         """
@@ -17,10 +19,11 @@ class MelSpectrogramDataset(Dataset):
         self.data_frame = df[['Melspectrogrampath', 'Emotion']]
         self.root_dir = root_dir
         self.transform = transform
-        
+
         # Sort unique labels before mapping
-        unique_labels = sorted(df['Emotion'].unique())  
-        self.label_map = {label: idx for idx, label in enumerate(unique_labels)}
+        unique_labels = sorted(df['Emotion'].unique())
+        self.label_map = {label: idx for idx,
+                          label in enumerate(unique_labels)}
 
     def __len__(self):
         return len(self.data_frame)
@@ -35,14 +38,14 @@ class MelSpectrogramDataset(Dataset):
         emotion_label = self.label_map[emotion_label_str]
 
         # Load the Melspectrogram
-        mel_image = Image.open(mel_path)
+        mel_image = Image.open(mel_path.replace('\\', '/'))
         mel_image = mel_image.convert("RGB")
 
         # Apply transformations if any
         if self.transform:
             mel_image = self.transform(mel_image)
-            
+
         # Convert emotion label to tensor
         emotion_label = torch.tensor(emotion_label, dtype=torch.long)
 
-        return mel_image, emotion_label    
+        return mel_image, emotion_label
