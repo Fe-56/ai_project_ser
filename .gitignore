@@ -6,3 +6,4 @@ data/checkpoints
 wav2vec2/models
 *.pyc
 *.pt
+!class_weights.pt
