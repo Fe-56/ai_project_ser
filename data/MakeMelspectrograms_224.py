@@ -46,6 +46,13 @@ def find_max_duration(paths):
     return max_duration
 
 
+def calculate_hop_length(max_duration=4):
+    hop_length = int(((TARGET_SR * max_duration) - N_FFT)/N_MELS)
+    print(
+        f"Hop Length: {hop_length} samples ({hop_length/TARGET_SR*1000:.1f} ms)")
+    return hop_length
+
+
 # Function to process a single file
 def create_melspectrogram(path, target_sr, max_duration, hop_length, n_fft, n_mels, fmin, fmax, power, window_type):
     try:
@@ -249,9 +256,7 @@ def main():
     max_duration = find_max_duration(all_paths)
     print(f"Maximum duration of audio: {max_duration}s")
 
-    hop_length_calculated = int(((TARGET_SR * max_duration) - N_FFT)/N_MELS)
-    print(
-        f"Hop Length: {hop_length_calculated} samples ({hop_length_calculated/TARGET_SR*1000:.1f} ms)")
+    hop_length_calculated = calculate_hop_length(max_duration)
 
     # Generate melspectrograms for the train set
     # Get the list of paths to process
