@@ -28,9 +28,11 @@ WINDOW_TYPE = 'hann'  # Window function type
 WINDOW_SIZE = 2048  # Window size (samples)
 # The resolution of the mel spectrogram image (multiply by 100)
 FIG_SIZE = (2.24, 2.24)
+SAVE_CSV = False
+FOLDER_NAME = 'melspectrograms_224'
 
 # Create necessary directories
-os.makedirs('melspectrograms', exist_ok=True)
+os.makedirs(FOLDER_NAME, exist_ok=True)
 os.makedirs('checkpoints', exist_ok=True)
 
 
@@ -92,7 +94,7 @@ def create_melspectrogram(path, target_sr, max_duration, hop_length, n_fft, n_me
         elif filename.endswith('.mp4'):
             filename = filename.replace('.mp4', '_melspectrogram.png')
 
-        spectrogram_path = os.path.join('melspectrograms', filename)
+        spectrogram_path = os.path.join(FOLDER_NAME, filename)
 
         plt.figure(figsize=FIG_SIZE, dpi=100)
         plt.subplots_adjust(left=0, right=1, top=1, bottom=0)
@@ -273,15 +275,16 @@ def main():
         hop_length=hop_length_calculated
     )
 
-    # Create a mapping from paths to spectrograms
-    path_to_spec = {r['path']: r['spectrogram_path'] for r in results}
+    if SAVE_CSV:
+        # Create a mapping from paths to spectrograms
+        path_to_spec = {r['path']: r['spectrogram_path'] for r in results}
 
-    # Update the dataframes
-    train['Melspectrogrampath'] = train['Filepath'].map(path_to_spec)
+        # Update the dataframes
+        train['Melspectrogrampath'] = train['Filepath'].map(path_to_spec)
 
-    # Save the updated dataframes
-    train = train[['Filepath', 'Melspectrogrampath', 'Emotion']]
-    train.to_csv('melspectrogram_train_dataset.csv', index=False)
+        # Save the updated dataframes
+        train = train[['Filepath', 'Melspectrogrampath', 'Emotion']]
+        train.to_csv('melspectrogram_train_dataset.csv', index=False)
 
     # Calculate and print statistics
     success_count = sum(1 for r in results if r['status'] == 'success')
@@ -306,15 +309,17 @@ def main():
         hop_length=hop_length_calculated
     )
 
-    # Create a mapping from paths to spectrograms
-    val_path_to_spec = {r['path']: r['spectrogram_path'] for r in val_results}
+    if SAVE_CSV:
+        # Create a mapping from paths to spectrograms
+        val_path_to_spec = {r['path']: r['spectrogram_path']
+                            for r in val_results}
 
-    # Update the test dataframe
-    val['Melspectrogrampath'] = val['Filepath'].map(val_path_to_spec)
+        # Update the test dataframe
+        val['Melspectrogrampath'] = val['Filepath'].map(val_path_to_spec)
 
-    # Save the updated test dataframe
-    val = val[['Filepath', 'Melspectrogrampath', 'Emotion']]
-    val.to_csv('melspectrogram_val_dataset.csv', index=False)
+        # Save the updated test dataframe
+        val = val[['Filepath', 'Melspectrogrampath', 'Emotion']]
+        val.to_csv('melspectrogram_val_dataset.csv', index=False)
 
     # Calculate and print statistics
     val_success_count = sum(1 for r in val_results if r['status'] == 'success')
@@ -340,16 +345,17 @@ def main():
         hop_length=hop_length_calculated
     )
 
-    # Create a mapping from paths to spectrograms
-    test_path_to_spec = {r['path']: r['spectrogram_path']
-                         for r in test_results}
+    if SAVE_CSV:
+        # Create a mapping from paths to spectrograms
+        test_path_to_spec = {r['path']: r['spectrogram_path']
+                             for r in test_results}
 
-    # Update the test dataframe
-    test['Melspectrogrampath'] = test['Filepath'].map(test_path_to_spec)
+        # Update the test dataframe
+        test['Melspectrogrampath'] = test['Filepath'].map(test_path_to_spec)
 
-    # Save the updated test dataframe
-    test = test[['Filepath', 'Melspectrogrampath', 'Emotion']]
-    test.to_csv('melspectrogram_test_dataset.csv', index=False)
+        # Save the updated test dataframe
+        test = test[['Filepath', 'Melspectrogrampath', 'Emotion']]
+        test.to_csv('melspectrogram_test_dataset.csv', index=False)
 
     # Calculate and print statistics
     test_success_count = sum(
