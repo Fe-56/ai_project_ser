@@ -249,7 +249,7 @@ def main():
     max_duration = find_max_duration(all_paths)
     print(f"Maximum duration of audio: {max_duration}s")
 
-    hop_length_calculated = ((TARGET_SR * max_duration) - N_FFT)/N_MELS
+    hop_length_calculated = int(((TARGET_SR * max_duration) - N_FFT)/N_MELS)
     print(
         f"Hop Length: {hop_length_calculated} samples ({hop_length_calculated/TARGET_SR*1000:.1f} ms)")
 
@@ -264,7 +264,8 @@ def main():
         max_duration=max_duration,
         batch_size=BATCH_SIZE,  # Adjust based on your dataset size and memory constraints
         n_processes=NUM_PROCESSES,  # Will use 75% of available cores by default
-        resume=True  # Set to False to start fresh and ignore checkpoints
+        resume=True,  # Set to False to start fresh and ignore checkpoints
+        hop_length=hop_length_calculated
     )
 
     # Create a mapping from paths to spectrograms
@@ -296,7 +297,8 @@ def main():
         max_duration=max_duration,
         batch_size=BATCH_SIZE,  # Adjust based on your dataset size and memory constraints
         n_processes=NUM_PROCESSES,  # Will use 75% of available cores by default
-        resume=True  # Set to False to start fresh and ignore checkpoints
+        resume=True,  # Set to False to start fresh and ignore checkpoints
+        hop_length=hop_length_calculated
     )
 
     # Create a mapping from paths to spectrograms
