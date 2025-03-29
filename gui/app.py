@@ -15,19 +15,22 @@ labelmap = {0: "Anger", 1: "Bored", 2: "Disgust", 3: "Fear", 4: "Happy",
             5: "Neutral", 6: "Question", 7: "Sad", 8: "Surprise"}
 
 def preprocess_audio(audio_path):
+    print("preprocess_audio")
     y, sr = librosa.load(audio_path, sr=16000)
     segment_length = 4 * sr 
     segments = [y[i:i + segment_length] for i in range(0, len(y), segment_length)]
     
     segments = [np.pad(seg, (0, max(0, segment_length - len(seg))), mode='constant') for seg in segments]
-    
+    print("segments: ", segments)
     return segments
 
 def predict_emotion(segment):
+    print("predict_emotion")
     input_tensor = processor(segment, sampling_rate=16000, return_tensors="pt").input_values
     with torch.no_grad():
         output = model(input_tensor)
     predicted_class = output.logits.argmax(dim=1).item()
+    print("predicted_class: ", predicted_class)
     return labelmap.get(predicted_class, "Unknown")
 
 @app.route('/predict_emotion', methods=['POST'])
@@ -55,6 +58,7 @@ def predict():
             'end_time': end_time,
             'emotion': emotion
         })
+        print("predictions: ", predictions)
     
     return jsonify({'predictions': predictions})
 
