@@ -4,6 +4,7 @@ data/report.html
 data/checkpoints
 /myenv
 wav2vec2/models
+gui/checkpoint-9477/
 *.pyc
 *.pt
 !class_weights.pt
