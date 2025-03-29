@@ -2,89 +2,80 @@ import pandas as pd
 import os
 from extract_features import OpenSMILEFeatureExtractor
 from tqdm import tqdm
+from concurrent.futures import ProcessPoolExecutor
+import multiprocessing
+
+def process_audio(row_dict, audio_column, base_data_path, output_dir):
+    """
+    Worker function to process a single audio file
+    """
+    try:
+        row_id = row_dict['Id']
+        audio_rel_path = row_dict[audio_column][2:].replace('\\', '/')
+        audio_file = os.path.join(base_data_path, audio_rel_path)
+        output_file = os.path.join(output_dir, f"{row_id}_features.csv")
+        temp_output_file = os.path.join(output_dir, f"temp_{row_id}_features.csv")
+
+        if not os.path.exists(audio_file):
+            return f"Warning: Audio file not found: {audio_file}"
+
+        if os.path.exists(output_file):
+            return f"Skipping already processed file: {audio_file}"
+
+        # Local instance per process to avoid shared state issues
+        extractor = OpenSMILEFeatureExtractor()
+
+        feature_file = extractor.extract_features(audio_file, temp_output_file)
+
+        if feature_file:
+            feature_df = pd.read_csv(feature_file, sep=';')
+            feature_df[audio_column] = row_dict[audio_column]
+            feature_df.drop('name', axis=1, inplace=True)
+            feature_df.to_csv(output_file, index=False)
+            os.remove(temp_output_file)
+        
+        return f"Processed {audio_file}"
+    except Exception as e:
+        return f"Error processing {row_dict[audio_column]}: {e}"
 
 def extract_features_from_csv(csv_path, audio_column, output_dir=None):
-    """
-    Extract features from audio files listed in a CSV and combine them into a single CSV file
-    
-    Args:
-        csv_path (str): Path to the CSV file containing audio file paths
-        audio_column (str): Name of the column containing audio file paths
-        output_dir (str, optional): Directory to save feature files. If None, will use the same directory as the CSV
-        
-    Returns:
-        str: Path to the combined feature CSV file
-    """
-    # Read the CSV file
     df = pd.read_csv(csv_path)
     
-    # Validate that the audio column exists
     if audio_column not in df.columns:
         raise ValueError(f"Column '{audio_column}' not found in CSV file")
     
-    # Set up output directory
     if output_dir is None:
         output_dir = os.path.join(os.path.dirname(csv_path), 'features')
     os.makedirs(output_dir, exist_ok=True)
-    
-    # Initialize the feature extractor
-    extractor = OpenSMILEFeatureExtractor()
-    
-    # Process each audio file
-    for _, row in tqdm(df.iterrows(), total=len(df), desc="Extracting features"):
-        audio_file = os.path.join('/teamspace/studios/this_studio/AI-Project--Speech-Emotion-Recognition/data', row[audio_column][2:].replace('\\','/'))
-        
-        # Skip if the audio file doesn't exist
-        if not os.path.exists(audio_file):
-            print(f"Warning: Audio file not found: {audio_file}")
-            continue
-            
-        # Generate temporary output filename
-        temp_output_file = os.path.join(output_dir, f"temp_{row['Id']}_features.csv")
-        output_file = os.path.join(output_dir, f"{row['Id']}_features.csv")
 
-        if os.path.exists(output_file):
-            print(f"Skipping audio file as it already exists: {audio_file}")
-            continue
-        
-        # Extract features
-        feature_file = extractor.extract_features(audio_file, temp_output_file)
-        
-        if feature_file:
-            # Read the feature file into a dataframe with semicolon separator
-            feature_df = pd.read_csv(feature_file, sep=';')
-            # Add audio path column
-            feature_df[audio_column] = row[audio_column]
-            feature_df.drop('name', axis=1, inplace=True)
-            feature_df.to_csv(output_file)
-            # Remove temporary file
-            os.remove(temp_output_file)
-    
-    # Combine all feature dataframes
-    # combined_df = pd.concat(feature_dfs, ignore_index=True)
-    
-    # # Save combined features to a single CSV file
-    # output_file = os.path.join(output_dir, "combined_train_features.csv")
-    # combined_df.to_csv(output_file, index=False)
-    
-    # return output_file
+    base_data_path = '/Users/joel-tay/Desktop/AI-Project--Speech-Emotion-Recognition/data'
+
+    # Convert each row to a dictionary
+    rows = df.to_dict(orient='records')
+
+    # Setup multiprocessing pool
+    with ProcessPoolExecutor(max_workers=multiprocessing.cpu_count()) as executor:
+        futures = [
+            executor.submit(process_audio, row, audio_column, base_data_path, output_dir)
+            for row in rows
+        ]
+
+        for future in tqdm(futures, desc="Extracting features", total=len(futures)):
+            msg = future.result()
+            if msg:
+                print(msg)
 
 def main():
-    # Set up paths
-    csv_path = f"/teamspace/studios/this_studio/AI-Project--Speech-Emotion-Recognition/data/speech_dataset.csv"
+    csv_path = "/Users/joel-tay/Desktop/AI-Project--Speech-Emotion-Recognition/data/speech_dataset.csv"
     audio_column = "Filepath"
     output_dir = os.path.join(os.path.dirname(csv_path), 'temp-features')
-    
+
     try:
         print(f"Starting feature extraction from {csv_path}")
-        print(f"Looking for audio files in column: {audio_column}")
-        
         extract_features_from_csv(csv_path, audio_column, output_dir)
-        
-        print(f"\nSuccessfully processed all files")
-        # print("Combined feature file saved as:", output_file)
+        print("Successfully processed all files")
     except Exception as e:
         print(f"Error: {e}")
 
 if __name__ == "__main__":
-    main() 
+    main()

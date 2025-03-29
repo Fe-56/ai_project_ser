@@ -17,3 +17,4 @@ data/augmentation/augmented_pitch/
 data/augmentation/checkpoints/
 data/augmentation/melspectrograms/
 data/mfccs_delta/
+*.DS_Store

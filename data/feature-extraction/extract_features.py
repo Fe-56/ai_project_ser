@@ -3,10 +3,10 @@ import subprocess
 from pathlib import Path
 
 class OpenSMILEFeatureExtractor:
-    def __init__(self, opensmile_path='/teamspace/studios/this_studio/opensmile-3.0.2-linux-x86_64/bin/SMILExtract'):
+    def __init__(self, opensmile_path='/Users/joel-tay/Desktop/opensmile-3.0.2-macos-armv8/bin/SMILExtract'):
         self.opensmile_path = opensmile_path
         # Path to the configuration file for feature extraction
-        self.config_path = '/teamspace/studios/this_studio/opensmile-3.0.2-linux-x86_64/config/is09-13/IS13_ComParE.conf'
+        self.config_path = '/Users/joel-tay/Desktop/opensmile-3.0.2-macos-armv8/config/is09-13/IS13_ComParE.conf'
         
     def convert_mp4_to_wav(self, mp4_file, wav_file=None):
         """
