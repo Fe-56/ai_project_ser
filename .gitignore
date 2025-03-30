@@ -1,5 +1,6 @@
 data/dataset/
 data/temp-features/
+data/features/
 data/melspectrograms/
 data/mfccs_img/
 data/report.html
