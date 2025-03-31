@@ -10,8 +10,7 @@ import traceback
 import pickle
 import time
 import functools
-import matplotlib.pyplot as plt
-from matplotlib import cm
+import torch
 
 # Set parameters for parallel and batch processing with checkpoints
 NUM_PROCESSES = None
@@ -29,8 +28,8 @@ WINDOW_TYPE = 'hann'  # Window function type
 WINDOW_SIZE = 2048  # Window size (samples)
 # The resolution of the mel spectrogram image (multiply by 100)
 FIG_SIZE = (2.24, 2.24)
-SAVE_CSV = True
-FOLDER_NAME = 'mfccs_img_224'
+SAVE_CSV = False
+FOLDER_NAME = 'mfccs_reflection'
 N_MFCC = 40
 
 # Create necessary directories
@@ -53,47 +52,38 @@ def find_max_duration(paths):
 # Function to process a single file
 def create_mfccs(path, target_sr, max_duration, hop_length, n_mfcc):
     try:
-        # Load and preprocess audio
+        # Load audio file and resample
         y, sr = librosa.load(path, sr=target_sr, res_type='kaiser_best')
+
+        # Normalize audio
         y = librosa.util.normalize(y)
 
+        # Compute hop length based on target_sr if not provided
         if hop_length is None:
-            hop_length = int(0.01 * sr)
+            hop_length = int(0.01 * sr)  # 10ms hop
 
-        # Compute MFCCs
+        # Generate MFCCs with consistent parameters
         mfccs = librosa.feature.mfcc(y=y, sr=sr, n_mfcc=n_mfcc)
 
-        # Pad/truncate time dimension
+        # Normalize MFCCs (z-score)
+        mfccs = (mfccs - np.mean(mfccs)) / (np.std(mfccs) + 1e-6)
+
         length = int(max_duration * (target_sr / hop_length))
+
+        # Reflection padding
         if mfccs.shape[1] < length:
             pad_width = length - mfccs.shape[1]
-            mfccs = np.pad(mfccs, ((0, 0), (0, pad_width)), mode='constant')
+            mfccs = np.pad(mfccs, ((0, 0), (0, pad_width)), mode='reflect')
         else:
             mfccs = mfccs[:, :length]
 
-        # Create output path
         filename = os.path.basename(path)
-        filename = os.path.splitext(filename)[0]
-        img_path = os.path.join(FOLDER_NAME, f"{filename}_mfcc.png")
+        filename = os.path.splitext(filename)[0]  # Remove extension
+        mfcc_path = os.path.join(FOLDER_NAME, f"{filename}_mfcc.pt")
+        mfcc_tensor = torch.tensor(mfccs, dtype=torch.float32)
+        torch.save(mfcc_tensor, mfcc_path)
 
-        # Plot and save MFCC as image (224x224 pixels)
-        plt.figure(figsize=FIG_SIZE, dpi=100)
-        plt.subplots_adjust(left=0, right=1, top=1, bottom=0)
-        plt.axis('off')
-        librosa.display.specshow(mfccs, x_axis='time')
-        plt.savefig(img_path, bbox_inches='tight', pad_inches=0)
-        plt.close()
-
-        # fig, ax = plt.subplots(figsize=FIG_SIZE, dpi=100)
-        # ax.imshow(mfccs, interpolation='nearest',
-        #           cmap=cm.coolwarm, aspect='auto')
-        # ax.axis('off')
-        # plt.tight_layout(pad=0)
-        # plt.savefig(img_path, bbox_inches='tight', pad_inches=0)
-        # plt.close(fig)
-
-        return {'path': path, 'mfcc_path': img_path, 'status': 'success'}
-
+        return {'path': path, 'mfcc_path': mfcc_path, 'status': 'success'}
     except Exception as e:
         error_msg = f"Error processing {path}: {str(e)}\n{traceback.format_exc()}"
         print(error_msg)
@@ -258,7 +248,7 @@ def main():
 
         # Save the updated dataframes
         train = train[['Filepath', 'MfccPath', 'Emotion']]
-        train.to_csv('mfcc_img_train_dataset.csv', index=False)
+        train.to_csv('mfcc_train_dataset.csv', index=False)
 
     # Calculate and print statistics
     success_count = sum(1 for r in results if r['status'] == 'success')
@@ -269,7 +259,7 @@ def main():
     print(
         f"Successful: {success_count} ({success_count/len(results)*100:.1f}%)")
     print(f"Failed: {error_count} ({error_count/len(results)*100:.1f}%)")
-    print(f"Results saved to mfcc_img_train_dataset.csv")
+    print(f"Results saved to mfcc_train_dataset.csv")
 
     # Generate melspectrograms for the val set
     val_paths = val['Filepath'].tolist()
@@ -292,7 +282,7 @@ def main():
 
         # Save the updated test dataframe
         val = val[['Filepath', 'MfccPath', 'Emotion']]
-        val.to_csv('mfcc_img_val_dataset.csv', index=False)
+        val.to_csv('mfcc_val_dataset.csv', index=False)
 
     # Calculate and print statistics
     val_success_count = sum(1 for r in val_results if r['status'] == 'success')
@@ -304,7 +294,7 @@ def main():
         f"Successful: {val_success_count} ({val_success_count/len(val_results)*100:.1f}%)")
     print(
         f"Failed: {val_error_count} ({val_error_count/len(val_results)*100:.1f}%)")
-    print(f"Results saved to mfcc_img_val_dataset.csv")
+    print(f"Results saved to mfcc_val_dataset.csv")
 
     # Generate melspectrograms for the test set
     test_paths = test['Filepath'].tolist()
@@ -327,7 +317,7 @@ def main():
 
         # Save the updated test dataframe
         test = test[['Filepath', 'MfccPath', 'Emotion']]
-        test.to_csv('mfcc_img_test_dataset.csv', index=False)
+        test.to_csv('mfcc_test_dataset.csv', index=False)
 
     # Calculate and print statistics
     test_success_count = sum(
@@ -340,7 +330,7 @@ def main():
         f"Successful: {test_success_count} ({test_success_count/len(test_results)*100:.1f}%)")
     print(
         f"Failed: {test_error_count} ({test_error_count/len(test_results)*100:.1f}%)")
-    print(f"Results saved to mfcc_img_test_dataset.csv")
+    print(f"Results saved to mfcc_test_dataset.csv")
 
 
 if __name__ == "__main__":
