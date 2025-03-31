@@ -21,7 +21,7 @@ BATCH_SIZE = 1000
 TARGET_SR = 22050  # Target sample rate
 N_FFT = 2048  # FFT window size
 HOP_LENGTH = 512  # Hop length (samples)
-N_MELS = 224  # Number of mel bands
+N_MELS = 128  # Number of mel bands
 FMIN = 20  # Minimum frequency
 FMAX = 8000  # Maximum frequency
 POWER = 2.0  # Power for mel spectrogram (2.0 = power spectrogram)
@@ -29,7 +29,7 @@ WINDOW_TYPE = 'hann'  # Window function type
 WINDOW_SIZE = 2048  # Window size (samples)
 # The resolution of the mel spectrogram image (multiply by 100)
 FIG_SIZE = (2.24, 2.24)
-SAVE_CSV = True
+SAVE_CSV = False
 FOLDER_NAME = 'mfccs'
 N_MFCC = 40
 
@@ -38,8 +38,20 @@ os.makedirs(FOLDER_NAME, exist_ok=True)
 os.makedirs('checkpoints', exist_ok=True)
 
 
+# Find max audio duration to pad all audios to the same length
+def find_max_duration(paths):
+    max_duration = 0
+    for path in tqdm(paths, desc="Finding max duration"):
+        try:
+            tag = TinyTag.get(path)
+            max_duration = max(max_duration, tag.duration)
+        except Exception as e:
+            print(f"Error processing {path}: {e}")
+    return max_duration
+
+
 # Function to process a single file
-def create_mfccs(path, target_sr, hop_length, n_fft, n_mels, fmin, fmax, power, window_type, n_mfcc):
+def create_mfccs(path, target_sr, max_duration, hop_length, n_mfcc):
     try:
         # Load audio file and resample
         y, sr = librosa.load(path, sr=target_sr, res_type='kaiser_best')
@@ -57,8 +69,15 @@ def create_mfccs(path, target_sr, hop_length, n_fft, n_mels, fmin, fmax, power, 
         # Normalize MFCCs (min-max or z-score)
         mfccs = (mfccs - np.mean(mfccs)) / (np.std(mfccs) + 1e-6)
 
-        # # Get MFFCs average features
-        # mfccs_mean = np.mean(mfccs, axis=1)
+        length = int(max_duration * (target_sr / hop_length))
+
+        # Zero-pad or truncate to length
+        if mfccs.shape[1] < length:
+            # Pad with zeros on the right (axis=1 is time)
+            pad_width = length - mfccs.shape[1]
+            mfccs = np.pad(mfccs, ((0, 0), (0, pad_width)), mode='constant')
+        else:
+            mfccs = mfccs[:, :length]
 
         filename = os.path.basename(path)
         filename = os.path.splitext(filename)[0]  # Remove extension
@@ -105,7 +124,7 @@ def get_all_checkpoint_results(checkpoint_dir='checkpoints'):
     return all_results
 
 
-def create_mfccs_in_batches(paths, batch_size=BATCH_SIZE, n_processes=NUM_PROCESSES, resume=True, hop_length=HOP_LENGTH):
+def create_mfccs_in_batches(paths, max_duration, batch_size=BATCH_SIZE, n_processes=NUM_PROCESSES, resume=True, hop_length=HOP_LENGTH):
     """Create mfccs in batches with checkpointing"""
     if n_processes is None:
         n_processes = max(1, int(cpu_count() * 0.75))
@@ -139,13 +158,8 @@ def create_mfccs_in_batches(paths, batch_size=BATCH_SIZE, n_processes=NUM_PROCES
     process_func = functools.partial(
         create_mfccs,
         target_sr=TARGET_SR,
+        max_duration=max_duration,
         hop_length=hop_length,
-        n_fft=N_FFT,
-        n_mels=N_MELS,
-        fmin=FMIN,
-        fmax=FMAX,
-        power=POWER,
-        window_type=WINDOW_TYPE,
         n_mfcc=N_MFCC
     )
 
@@ -208,6 +222,11 @@ def main():
     test['Filepath'] = test['Filepath'].str.replace('\\', '/')
     val['Filepath'] = val['Filepath'].str.replace('\\', '/')
 
+    all_paths = pd.concat(
+        [train['Filepath'], val['Filepath'], test['Filepath']], ignore_index=True)
+    max_duration = find_max_duration(all_paths)
+    print(f"Maximum duration of audio: {max_duration}s")
+
     # Generate melspectrograms for the train set
     # Get the list of paths to process
     train_paths = train['Filepath'].tolist()
@@ -216,6 +235,7 @@ def main():
     print(f"Processing {len(train_paths)} training files...")
     results = create_mfccs_in_batches(
         paths=train_paths,
+        max_duration=max_duration,
         batch_size=BATCH_SIZE,  # Adjust based on your dataset size and memory constraints
         n_processes=NUM_PROCESSES,  # Will use 75% of available cores by default
         resume=True,  # Set to False to start fresh and ignore checkpoints
@@ -248,6 +268,7 @@ def main():
     print(f"Processing {len(val_paths)} test files...")
     val_results = create_mfccs_in_batches(
         paths=val_paths,
+        max_duration=max_duration,
         batch_size=BATCH_SIZE,  # Adjust based on your dataset size and memory constraints
         n_processes=NUM_PROCESSES,  # Will use 75% of available cores by default
         resume=True,  # Set to False to start fresh and ignore checkpoints
@@ -282,6 +303,7 @@ def main():
     print(f"Processing {len(test_paths)} test files...")
     test_results = create_mfccs_in_batches(
         paths=test_paths,
+        max_duration=max_duration,
         batch_size=BATCH_SIZE,  # Adjust based on your dataset size and memory constraints
         n_processes=NUM_PROCESSES,  # Will use 75% of available cores by default
         resume=True,  # Set to False to start fresh and ignore checkpoints
