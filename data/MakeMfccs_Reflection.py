@@ -1,7 +1,6 @@
 import os
 import pandas as pd
 import numpy as np
-import matplotlib.pyplot as plt
 import librosa
 import librosa.display
 from tinytag import TinyTag
@@ -11,13 +10,14 @@ import traceback
 import pickle
 import time
 import functools
+import torch
 
 # Set parameters for parallel and batch processing with checkpoints
 NUM_PROCESSES = None
 BATCH_SIZE = 1000
 
 # Set consistent audio processing parameters
-TARGET_SR = 16000  # Target sample rate
+TARGET_SR = 22050  # Target sample rate
 N_FFT = 2048  # FFT window size
 HOP_LENGTH = 512  # Hop length (samples)
 N_MELS = 128  # Number of mel bands
@@ -26,9 +26,11 @@ FMAX = 8000  # Maximum frequency
 POWER = 2.0  # Power for mel spectrogram (2.0 = power spectrogram)
 WINDOW_TYPE = 'hann'  # Window function type
 WINDOW_SIZE = 2048  # Window size (samples)
-FIG_SIZE = (10, 4)
+# The resolution of the mel spectrogram image (multiply by 100)
+FIG_SIZE = (2.24, 2.24)
 SAVE_CSV = False
-FOLDER_NAME = 'melspectrograms_224'
+FOLDER_NAME = 'mfccs_reflection'
+N_MFCC = 40
 
 # Create necessary directories
 os.makedirs(FOLDER_NAME, exist_ok=True)
@@ -48,66 +50,44 @@ def find_max_duration(paths):
 
 
 # Function to process a single file
-def create_melspectrogram(path, target_sr, max_duration, hop_length, n_fft, n_mels, fmin, fmax, power, window_type):
+def create_mfccs(path, target_sr, max_duration, hop_length, n_mfcc):
     try:
         # Load audio file and resample
-        y, sr = librosa.load(path, sr=target_sr)
+        y, sr = librosa.load(path, sr=target_sr, res_type='kaiser_best')
 
         # Normalize audio
         y = librosa.util.normalize(y)
-
-        # Pad shorter files
-        if max_duration:
-            target_length = int(max_duration * sr)
-            if len(y) < target_length:
-                y = np.pad(y, (0, target_length - len(y)), mode='constant')
 
         # Compute hop length based on target_sr if not provided
         if hop_length is None:
             hop_length = int(0.01 * sr)  # 10ms hop
 
-        # Generate mel spectrogram with consistent parameters
-        melspectrogram = librosa.feature.melspectrogram(
-            y=y,
-            sr=sr,
-            n_fft=n_fft,
-            hop_length=hop_length,
-            n_mels=n_mels,
-            fmin=fmin,
-            fmax=fmax,
-            power=power,
-            window=window_type
-        )
-        melspectrogramdb = librosa.power_to_db(melspectrogram, ref=np.max)
+        # Generate MFCCs with consistent parameters
+        mfccs = librosa.feature.mfcc(y=y, sr=sr, n_mfcc=n_mfcc)
+
+        # Normalize MFCCs (z-score)
+        mfccs = (mfccs - np.mean(mfccs)) / (np.std(mfccs) + 1e-6)
+
+        length = int(max_duration * (target_sr / hop_length))
+
+        # Reflection padding
+        if mfccs.shape[1] < length:
+            pad_width = length - mfccs.shape[1]
+            mfccs = np.pad(mfccs, ((0, 0), (0, pad_width)), mode='reflect')
+        else:
+            mfccs = mfccs[:, :length]
 
         filename = os.path.basename(path)
-        if filename.endswith('.wav'):
-            filename = filename.replace('.wav', '_melspectrogram.png')
-        elif filename.endswith('.mp4'):
-            filename = filename.replace('.mp4', '_melspectrogram.png')
+        filename = os.path.splitext(filename)[0]  # Remove extension
+        mfcc_path = os.path.join(FOLDER_NAME, f"{filename}_mfcc.pt")
+        mfcc_tensor = torch.tensor(mfccs, dtype=torch.float32)
+        torch.save(mfcc_tensor, mfcc_path)
 
-        spectrogram_path = os.path.join(FOLDER_NAME, filename)
-
-        plt.figure(figsize=(10, 4))
-        plt.subplots_adjust(left=0, right=1, top=1, bottom=0)
-        plt.axis('off')
-        librosa.display.specshow(
-            melspectrogramdb,
-            sr=sr,
-            hop_length=hop_length,
-            x_axis='time',
-            y_axis='mel',
-            fmin=fmin,
-            fmax=fmax
-        )
-        plt.savefig(spectrogram_path, bbox_inches='tight', pad_inches=0)
-        plt.close()
-
-        return {'path': path, 'spectrogram_path': spectrogram_path, 'status': 'success'}
+        return {'path': path, 'mfcc_path': mfcc_path, 'status': 'success'}
     except Exception as e:
         error_msg = f"Error processing {path}: {str(e)}\n{traceback.format_exc()}"
         print(error_msg)
-        return {'path': path, 'spectrogram_path': None, 'status': 'error', 'error': str(e)}
+        return {'path': path, 'mfcc_path': None, 'status': 'error', 'error': str(e)}
 
 
 def save_checkpoint(batch_id, results, checkpoint_dir='checkpoints'):
@@ -142,8 +122,8 @@ def get_all_checkpoint_results(checkpoint_dir='checkpoints'):
     return all_results
 
 
-def create_melspectrograms_in_batches(paths, max_duration, batch_size=BATCH_SIZE, n_processes=NUM_PROCESSES, resume=True):
-    """Create melspectrograms in batches with checkpointing"""
+def create_mfccs_in_batches(paths, max_duration, batch_size=BATCH_SIZE, n_processes=NUM_PROCESSES, resume=True, hop_length=HOP_LENGTH):
+    """Create mfccs in batches with checkpointing"""
     if n_processes is None:
         n_processes = max(1, int(cpu_count() * 0.75))
 
@@ -174,16 +154,11 @@ def create_melspectrograms_in_batches(paths, max_duration, batch_size=BATCH_SIZE
 
     # Create a partial function with the fixed parameters
     process_func = functools.partial(
-        create_melspectrogram,
+        create_mfccs,
         target_sr=TARGET_SR,
         max_duration=max_duration,
-        hop_length=HOP_LENGTH,
-        n_fft=N_FFT,
-        n_mels=N_MELS,
-        fmin=FMIN,
-        fmax=FMAX,
-        power=POWER,
-        window_type=WINDOW_TYPE
+        hop_length=hop_length,
+        n_mfcc=N_MFCC
     )
 
     # Process in batches
@@ -219,8 +194,8 @@ def create_melspectrograms_in_batches(paths, max_duration, batch_size=BATCH_SIZE
 
 
 def main():
-    # Print mel spectrogram parameters
-    print("\nMel Spectrogram Parameters:")
+    # Print mfcc parameters
+    print("\nMFCC Parameters:")
     print(f"Sample Rate: {TARGET_SR} Hz")
     print(f"FFT Window Size: {N_FFT}")
     print(
@@ -241,8 +216,9 @@ def main():
     test = test[['Filepath', 'Emotion']]
 
     # Fix file paths if needed
-    # train['Filepath'] = train['Filepath'].str.replace('\\', '/')
-    # test['Filepath'] = test['Filepath'].str.replace('\\', '/')
+    train['Filepath'] = train['Filepath'].str.replace('\\', '/')
+    test['Filepath'] = test['Filepath'].str.replace('\\', '/')
+    val['Filepath'] = val['Filepath'].str.replace('\\', '/')
 
     all_paths = pd.concat(
         [train['Filepath'], val['Filepath'], test['Filepath']], ignore_index=True)
@@ -255,24 +231,24 @@ def main():
 
     # Process the training data
     print(f"Processing {len(train_paths)} training files...")
-    results = create_melspectrograms_in_batches(
+    results = create_mfccs_in_batches(
         paths=train_paths,
         max_duration=max_duration,
         batch_size=BATCH_SIZE,  # Adjust based on your dataset size and memory constraints
         n_processes=NUM_PROCESSES,  # Will use 75% of available cores by default
-        resume=True  # Set to False to start fresh and ignore checkpoints
+        resume=True,  # Set to False to start fresh and ignore checkpoints
     )
 
     if SAVE_CSV:
         # Create a mapping from paths to spectrograms
-        path_to_spec = {r['path']: r['spectrogram_path'] for r in results}
+        path_to_spec = {r['path']: r['mfcc_path'] for r in results}
 
         # Update the dataframes
-        train['Melspectrogrampath'] = train['Filepath'].map(path_to_spec)
+        train['MfccPath'] = train['Filepath'].map(path_to_spec)
 
         # Save the updated dataframes
-        train = train[['Filepath', 'Melspectrogrampath', 'Emotion']]
-        train.to_csv('melspectrogram_train_dataset.csv', index=False)
+        train = train[['Filepath', 'MfccPath', 'Emotion']]
+        train.to_csv('mfcc_train_dataset.csv', index=False)
 
     # Calculate and print statistics
     success_count = sum(1 for r in results if r['status'] == 'success')
@@ -283,30 +259,30 @@ def main():
     print(
         f"Successful: {success_count} ({success_count/len(results)*100:.1f}%)")
     print(f"Failed: {error_count} ({error_count/len(results)*100:.1f}%)")
-    print(f"Results saved to melspectrogram_train_dataset.csv")
+    print(f"Results saved to mfcc_train_dataset.csv")
 
     # Generate melspectrograms for the val set
     val_paths = val['Filepath'].tolist()
     print(f"Processing {len(val_paths)} test files...")
-    val_results = create_melspectrograms_in_batches(
+    val_results = create_mfccs_in_batches(
         paths=val_paths,
         max_duration=max_duration,
         batch_size=BATCH_SIZE,  # Adjust based on your dataset size and memory constraints
         n_processes=NUM_PROCESSES,  # Will use 75% of available cores by default
-        resume=True  # Set to False to start fresh and ignore checkpoints
+        resume=True,  # Set to False to start fresh and ignore checkpoints
     )
 
     if SAVE_CSV:
         # Create a mapping from paths to spectrograms
-        val_path_to_spec = {r['path']: r['spectrogram_path']
+        val_path_to_spec = {r['path']: r['mfcc_path']
                             for r in val_results}
 
         # Update the test dataframe
-        val['Melspectrogrampath'] = val['Filepath'].map(val_path_to_spec)
+        val['MfccPath'] = val['Filepath'].map(val_path_to_spec)
 
         # Save the updated test dataframe
-        val = val[['Filepath', 'Melspectrogrampath', 'Emotion']]
-        val.to_csv('melspectrogram_val_dataset.csv', index=False)
+        val = val[['Filepath', 'MfccPath', 'Emotion']]
+        val.to_csv('mfcc_val_dataset.csv', index=False)
 
     # Calculate and print statistics
     val_success_count = sum(1 for r in val_results if r['status'] == 'success')
@@ -318,30 +294,30 @@ def main():
         f"Successful: {val_success_count} ({val_success_count/len(val_results)*100:.1f}%)")
     print(
         f"Failed: {val_error_count} ({val_error_count/len(val_results)*100:.1f}%)")
-    print(f"Results saved to melspectrogram_val_dataset.csv")
+    print(f"Results saved to mfcc_val_dataset.csv")
 
     # Generate melspectrograms for the test set
     test_paths = test['Filepath'].tolist()
     print(f"Processing {len(test_paths)} test files...")
-    test_results = create_melspectrograms_in_batches(
+    test_results = create_mfccs_in_batches(
         paths=test_paths,
         max_duration=max_duration,
         batch_size=BATCH_SIZE,  # Adjust based on your dataset size and memory constraints
         n_processes=NUM_PROCESSES,  # Will use 75% of available cores by default
-        resume=True  # Set to False to start fresh and ignore checkpoints
+        resume=True,  # Set to False to start fresh and ignore checkpoints
     )
 
     if SAVE_CSV:
         # Create a mapping from paths to spectrograms
-        test_path_to_spec = {r['path']: r['spectrogram_path']
+        test_path_to_spec = {r['path']: r['mfcc_path']
                              for r in test_results}
 
         # Update the test dataframe
-        test['Melspectrogrampath'] = test['Filepath'].map(test_path_to_spec)
+        test['MfccPath'] = test['Filepath'].map(test_path_to_spec)
 
         # Save the updated test dataframe
-        test = test[['Filepath', 'Melspectrogrampath', 'Emotion']]
-        test.to_csv('melspectrogram_test_dataset.csv', index=False)
+        test = test[['Filepath', 'MfccPath', 'Emotion']]
+        test.to_csv('mfcc_test_dataset.csv', index=False)
 
     # Calculate and print statistics
     test_success_count = sum(
@@ -354,7 +330,7 @@ def main():
         f"Successful: {test_success_count} ({test_success_count/len(test_results)*100:.1f}%)")
     print(
         f"Failed: {test_error_count} ({test_error_count/len(test_results)*100:.1f}%)")
-    print(f"Results saved to melspectrogram_test_dataset.csv")
+    print(f"Results saved to mfcc_test_dataset.csv")
 
 
 if __name__ == "__main__":
