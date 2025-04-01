@@ -29,7 +29,7 @@ WINDOW_SIZE = 2048  # Window size (samples)
 # The resolution of the mel spectrogram image (multiply by 100)
 FIG_SIZE = (2.24, 2.24)
 SAVE_CSV = True
-FOLDER_NAME = 'mfccs_img_224'
+FOLDER_NAME = 'mfccs_img'
 N_MFCC = 40
 
 # Create necessary directories
