@@ -17,18 +17,19 @@ NUM_PROCESSES = None
 BATCH_SIZE = 1000
 
 # Set consistent audio processing parameters
-TARGET_SR = 16000  # Target sample rate
+TARGET_SR = 22050  # Target sample rate
 N_FFT = 2048  # FFT window size
 HOP_LENGTH = 512  # Hop length (samples)
-N_MELS = 128  # Number of mel bands
+N_MELS = 224  # Number of mel bands
 FMIN = 20  # Minimum frequency
 FMAX = 8000  # Maximum frequency
 POWER = 2.0  # Power for mel spectrogram (2.0 = power spectrogram)
 WINDOW_TYPE = 'hann'  # Window function type
 WINDOW_SIZE = 2048  # Window size (samples)
-FIG_SIZE = (10, 4)
+# The resolution of the mel spectrogram image (multiply by 100)
+FIG_SIZE = (19.2, 10.8)
 SAVE_CSV = False
-FOLDER_NAME = 'melspectrograms_repetitive'
+FOLDER_NAME = 'melspectrograms_1080zero'
 
 # Create necessary directories
 os.makedirs(FOLDER_NAME, exist_ok=True)
@@ -47,23 +48,8 @@ def find_max_duration(paths):
     return max_duration
 
 
-def repeat_pad_audio(y, desired_length):
-    """
-    Repeat and pad the audio signal 'y' until it reaches the desired_length (in samples).
-    """
-    if len(y) >= desired_length:
-        return y[:desired_length]
-    # Calculate how many full repetitions of y we need
-    full_reps = int(np.floor(desired_length / len(y)))
-    # Calculate the number of samples needed from the next repetition
-    remainder = desired_length - full_reps * len(y)
-    # Repeat the audio and add the remaining part
-    y_padded = np.concatenate([np.tile(y, full_reps), y[:remainder]])
-    return y_padded
-
-
 # Function to process a single file
-def create_melspectrogram(path, target_sr, max_duration, hop_length, n_fft, n_mels, fmin, fmax, power, window_type):
+def create_melspectrogram(path, target_sr, max_duration, n_fft, n_mels, fmin, fmax, power, window_type):
     try:
         # Load audio file and resample
         y, sr = librosa.load(path, sr=target_sr)
@@ -71,12 +57,15 @@ def create_melspectrogram(path, target_sr, max_duration, hop_length, n_fft, n_me
         # Normalize audio
         y = librosa.util.normalize(y)
 
-        # Pad shorter files with repetitive padding
-        y = repeat_pad_audio(y, int(max_duration * target_sr))
+        # Pad shorter files
+        if max_duration:
+            target_length = int(max_duration * sr)
+            if len(y) < target_length:
+                y = np.pad(y, (0, target_length - len(y)), mode='constant')
 
-        # Compute hop length based on target_sr if not provided
-        if hop_length is None:
-            hop_length = int(0.01 * sr)  # 10ms hop
+        # Adaptive hop length
+        num_samples = len(y)
+        hop_length = num_samples // 224  # Eventually want to resize to 224x224
 
         # Generate mel spectrogram with consistent parameters
         melspectrogram = librosa.feature.melspectrogram(
@@ -100,7 +89,7 @@ def create_melspectrogram(path, target_sr, max_duration, hop_length, n_fft, n_me
 
         spectrogram_path = os.path.join(FOLDER_NAME, filename)
 
-        plt.figure(figsize=FIG_SIZE)
+        plt.figure(figsize=FIG_SIZE, dpi=100)
         plt.subplots_adjust(left=0, right=1, top=1, bottom=0)
         plt.axis('off')
         librosa.display.specshow(
@@ -189,7 +178,6 @@ def create_melspectrograms_in_batches(paths, max_duration, batch_size=BATCH_SIZE
         create_melspectrogram,
         target_sr=TARGET_SR,
         max_duration=max_duration,
-        hop_length=HOP_LENGTH,
         n_fft=N_FFT,
         n_mels=N_MELS,
         fmin=FMIN,
@@ -235,8 +223,8 @@ def main():
     print("\nMel Spectrogram Parameters:")
     print(f"Sample Rate: {TARGET_SR} Hz")
     print(f"FFT Window Size: {N_FFT}")
-    print(
-        f"Hop Length: {HOP_LENGTH} samples ({HOP_LENGTH/TARGET_SR*1000:.1f} ms)")
+    # print(
+    #     f"Hop Length: {HOP_LENGTH} samples ({HOP_LENGTH/TARGET_SR*1000:.1f} ms)")
     print(f"Window Type: {WINDOW_TYPE}")
     print(f"Mel Bands: {N_MELS}")
     print(f"Frequency Range: {FMIN} Hz - {FMAX} Hz")
@@ -273,7 +261,7 @@ def main():
         max_duration=max_duration,
         batch_size=BATCH_SIZE,  # Adjust based on your dataset size and memory constraints
         n_processes=NUM_PROCESSES,  # Will use 75% of available cores by default
-        resume=True  # Set to False to start fresh and ignore checkpoints
+        resume=True,  # Set to False to start fresh and ignore checkpoints
     )
 
     if SAVE_CSV:
@@ -306,7 +294,7 @@ def main():
         max_duration=max_duration,
         batch_size=BATCH_SIZE,  # Adjust based on your dataset size and memory constraints
         n_processes=NUM_PROCESSES,  # Will use 75% of available cores by default
-        resume=True  # Set to False to start fresh and ignore checkpoints
+        resume=True,  # Set to False to start fresh and ignore checkpoints
     )
 
     if SAVE_CSV:
@@ -341,7 +329,7 @@ def main():
         max_duration=max_duration,
         batch_size=BATCH_SIZE,  # Adjust based on your dataset size and memory constraints
         n_processes=NUM_PROCESSES,  # Will use 75% of available cores by default
-        resume=True  # Set to False to start fresh and ignore checkpoints
+        resume=True,  # Set to False to start fresh and ignore checkpoints
     )
 
     if SAVE_CSV:
