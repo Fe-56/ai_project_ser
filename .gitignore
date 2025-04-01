@@ -1,5 +1,6 @@
 data/dataset/
 data/melspectrograms/
+data/mfccs_img/
 data/report.html
 data/checkpoints
 /myenv
