@@ -115,7 +115,7 @@ class Pipeline:
         best_accuracy = 0
 
         early_stopper = EarlyStopping(
-            path=f'../models/checkpoints/earlystop_{model_name}.pt', patience=patience)
+            path=f'../../models/checkpoints/earlystop_{model_name}.pt', patience=patience)
 
         for epoch in range(num_epochs):
             print(f'Epoch {epoch+1}/{num_epochs}')
