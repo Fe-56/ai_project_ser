@@ -14,7 +14,7 @@ import functools
 
 # Set parameters for parallel and batch processing with checkpoints
 NUM_PROCESSES = None
-BATCH_SIZE = 1000
+BATCH_SIZE = 500
 
 # Set consistent audio processing parameters
 TARGET_SR = 22050  # Target sample rate
