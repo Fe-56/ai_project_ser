@@ -1,22 +1,21 @@
 import os
 import pandas as pd
 from torch.utils.data import Dataset
-from PIL import Image
 import torch
 
-# Custom dataset class for loading Melspectrograms
+# Custom dataset class for loading MFCC tensors
 
 
-class MelSpectrogramDataset(Dataset):
+class MFCCDataset(Dataset):
     def __init__(self, csv_file, root_dir, transform=None):
         """
         Args:
-            csv_file (string): Path to the csv file with Melspectrogram paths and labels.
-            root_dir (string): Directory with all the Melspectrograms.
+            csv_file (string): Path to the csv file with MFCCs paths and labels.
+            root_dir (string): Directory with all the MFCCs.
             transform (callable, optional): Optional transform to be applied on a sample.
         """
         df = pd.read_csv(csv_file)  # Read the CSV into a DataFrame
-        self.data_frame = df[['Melspectrogrampath', 'Emotion']]
+        self.data_frame = df[['MfccPath', 'Emotion']]
         self.root_dir = root_dir
         self.transform = transform
 
@@ -29,23 +28,22 @@ class MelSpectrogramDataset(Dataset):
         return len(self.data_frame)
 
     def __getitem__(self, idx):
-        # Get the path to the Melspectrogram and the emotion label (string)
+        # Get the path to the MFCC tensor and the emotion label (string)
         # First column is path, second column is label (emotion as string)
-        mel_path = os.path.join(self.root_dir, self.data_frame.iloc[idx, 0])
+        mfcc_path = os.path.join(self.root_dir, self.data_frame.iloc[idx, 0])
         emotion_label_str = self.data_frame.iloc[idx, 1]
 
         # Convert the emotion string to its corresponding integer
         emotion_label = self.label_map[emotion_label_str]
 
-        # Load the Melspectrogram
-        mel_image = Image.open(mel_path.replace('\\', '/'))
-        mel_image = mel_image.convert("RGB")
+        # Load the MFCC tensor
+        mfcc = torch.load(mfcc_path)
 
         # Apply transformations if any
         if self.transform:
-            mel_image = self.transform(mel_image)
+            mfcc = self.transform(mfcc)
 
         # Convert emotion label to tensor
         emotion_label = torch.tensor(emotion_label, dtype=torch.long)
 
-        return mel_image, emotion_label
+        return mfcc, emotion_label

@@ -20,13 +20,14 @@ BATCH_SIZE = 1000
 TARGET_SR = 16000  # Target sample rate
 N_FFT = 2048  # FFT window size
 HOP_LENGTH = 512  # Hop length (samples)
-N_MELS = 128  # Number of mel bands
+N_MELS = 224  # Number of mel bands
 FMIN = 20  # Minimum frequency
 FMAX = 8000  # Maximum frequency
 POWER = 2.0  # Power for mel spectrogram (2.0 = power spectrogram)
 WINDOW_TYPE = 'hann'  # Window function type
 WINDOW_SIZE = 2048  # Window size (samples)
-FIG_SIZE = (10, 4)
+# The resolution of the mel spectrogram image (multiply by 100)
+FIG_SIZE = (2.24, 2.24)
 SAVE_CSV = False
 FOLDER_NAME = 'melspectrograms_224'
 
@@ -45,6 +46,13 @@ def find_max_duration(paths):
         except Exception as e:
             print(f"Error processing {path}: {e}")
     return max_duration
+
+
+def calculate_hop_length(max_duration=4):
+    hop_length = int(((TARGET_SR * max_duration) - N_FFT)/N_MELS)
+    print(
+        f"Hop Length: {hop_length} samples ({hop_length/TARGET_SR*1000:.1f} ms)")
+    return hop_length
 
 
 # Function to process a single file
@@ -88,7 +96,7 @@ def create_melspectrogram(path, target_sr, max_duration, hop_length, n_fft, n_me
 
         spectrogram_path = os.path.join(FOLDER_NAME, filename)
 
-        plt.figure(figsize=(10, 4))
+        plt.figure(figsize=FIG_SIZE, dpi=100)
         plt.subplots_adjust(left=0, right=1, top=1, bottom=0)
         plt.axis('off')
         librosa.display.specshow(
@@ -142,7 +150,7 @@ def get_all_checkpoint_results(checkpoint_dir='checkpoints'):
     return all_results
 
 
-def create_melspectrograms_in_batches(paths, max_duration, batch_size=BATCH_SIZE, n_processes=NUM_PROCESSES, resume=True):
+def create_melspectrograms_in_batches(paths, max_duration, batch_size=BATCH_SIZE, n_processes=NUM_PROCESSES, resume=True, hop_length=HOP_LENGTH):
     """Create melspectrograms in batches with checkpointing"""
     if n_processes is None:
         n_processes = max(1, int(cpu_count() * 0.75))
@@ -177,7 +185,7 @@ def create_melspectrograms_in_batches(paths, max_duration, batch_size=BATCH_SIZE
         create_melspectrogram,
         target_sr=TARGET_SR,
         max_duration=max_duration,
-        hop_length=HOP_LENGTH,
+        hop_length=hop_length,
         n_fft=N_FFT,
         n_mels=N_MELS,
         fmin=FMIN,
@@ -223,8 +231,8 @@ def main():
     print("\nMel Spectrogram Parameters:")
     print(f"Sample Rate: {TARGET_SR} Hz")
     print(f"FFT Window Size: {N_FFT}")
-    print(
-        f"Hop Length: {HOP_LENGTH} samples ({HOP_LENGTH/TARGET_SR*1000:.1f} ms)")
+    # print(
+    #     f"Hop Length: {HOP_LENGTH} samples ({HOP_LENGTH/TARGET_SR*1000:.1f} ms)")
     print(f"Window Type: {WINDOW_TYPE}")
     print(f"Mel Bands: {N_MELS}")
     print(f"Frequency Range: {FMIN} Hz - {FMAX} Hz")
@@ -241,13 +249,16 @@ def main():
     test = test[['Filepath', 'Emotion']]
 
     # Fix file paths if needed
-    # train['Filepath'] = train['Filepath'].str.replace('\\', '/')
-    # test['Filepath'] = test['Filepath'].str.replace('\\', '/')
+    train['Filepath'] = train['Filepath'].str.replace('\\', '/')
+    test['Filepath'] = test['Filepath'].str.replace('\\', '/')
+    val['Filepath'] = val['Filepath'].str.replace('\\', '/')
 
     all_paths = pd.concat(
         [train['Filepath'], val['Filepath'], test['Filepath']], ignore_index=True)
     max_duration = find_max_duration(all_paths)
     print(f"Maximum duration of audio: {max_duration}s")
+
+    hop_length_calculated = calculate_hop_length(max_duration)
 
     # Generate melspectrograms for the train set
     # Get the list of paths to process
@@ -260,7 +271,8 @@ def main():
         max_duration=max_duration,
         batch_size=BATCH_SIZE,  # Adjust based on your dataset size and memory constraints
         n_processes=NUM_PROCESSES,  # Will use 75% of available cores by default
-        resume=True  # Set to False to start fresh and ignore checkpoints
+        resume=True,  # Set to False to start fresh and ignore checkpoints
+        hop_length=hop_length_calculated
     )
 
     if SAVE_CSV:
@@ -293,7 +305,8 @@ def main():
         max_duration=max_duration,
         batch_size=BATCH_SIZE,  # Adjust based on your dataset size and memory constraints
         n_processes=NUM_PROCESSES,  # Will use 75% of available cores by default
-        resume=True  # Set to False to start fresh and ignore checkpoints
+        resume=True,  # Set to False to start fresh and ignore checkpoints
+        hop_length=hop_length_calculated
     )
 
     if SAVE_CSV:
@@ -328,7 +341,8 @@ def main():
         max_duration=max_duration,
         batch_size=BATCH_SIZE,  # Adjust based on your dataset size and memory constraints
         n_processes=NUM_PROCESSES,  # Will use 75% of available cores by default
-        resume=True  # Set to False to start fresh and ignore checkpoints
+        resume=True,  # Set to False to start fresh and ignore checkpoints
+        hop_length=hop_length_calculated
     )
 
     if SAVE_CSV:

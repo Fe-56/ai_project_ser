@@ -1,13 +1,13 @@
 import os
 import pandas as pd
 from torch.utils.data import Dataset
-from PIL import Image
 import torch
+from PIL import Image
 
-# Custom dataset class for loading Melspectrograms
+# Custom dataset class for loading MFCC images
 
 
-class MelSpectrogramDataset(Dataset):
+class MFCCImageDataset(Dataset):
     def __init__(self, csv_file, root_dir, transform=None):
         """
         Args:
@@ -16,7 +16,7 @@ class MelSpectrogramDataset(Dataset):
             transform (callable, optional): Optional transform to be applied on a sample.
         """
         df = pd.read_csv(csv_file)  # Read the CSV into a DataFrame
-        self.data_frame = df[['Melspectrogrampath', 'Emotion']]
+        self.data_frame = df[['MfccImgPath', 'Emotion']]
         self.root_dir = root_dir
         self.transform = transform
 

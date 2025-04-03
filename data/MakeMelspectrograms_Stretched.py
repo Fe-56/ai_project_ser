@@ -28,7 +28,7 @@ WINDOW_TYPE = 'hann'  # Window function type
 WINDOW_SIZE = 2048  # Window size (samples)
 FIG_SIZE = (10, 4)
 SAVE_CSV = False
-FOLDER_NAME = 'melspectrograms_224'
+FOLDER_NAME = 'melspectrograms_stretched'
 
 # Create necessary directories
 os.makedirs(FOLDER_NAME, exist_ok=True)
@@ -47,6 +47,24 @@ def find_max_duration(paths):
     return max_duration
 
 
+def time_stetch_audio(y, target_duration, sr):
+    current_duration = len(y) / sr
+
+    # Calculate the stretch rate to match the target duration
+    stretch_rate = current_duration / target_duration
+    y = librosa.effects.time_stretch(y, rate=stretch_rate)
+
+    # Trim or pad to ensure exact length after stretching
+    target_length = int(target_duration * sr)
+
+    if len(y) > target_length:
+        y = y[:target_length]
+    elif len(y) < target_length:
+        y = np.pad(y, (0, target_length - len(y)), mode='constant')
+
+    return y
+
+
 # Function to process a single file
 def create_melspectrogram(path, target_sr, max_duration, hop_length, n_fft, n_mels, fmin, fmax, power, window_type):
     try:
@@ -56,11 +74,8 @@ def create_melspectrogram(path, target_sr, max_duration, hop_length, n_fft, n_me
         # Normalize audio
         y = librosa.util.normalize(y)
 
-        # Pad shorter files
-        if max_duration:
-            target_length = int(max_duration * sr)
-            if len(y) < target_length:
-                y = np.pad(y, (0, target_length - len(y)), mode='constant')
+        # Time-stretch the audio fil
+        y = time_stetch_audio(y, max_duration, target_sr)
 
         # Compute hop length based on target_sr if not provided
         if hop_length is None:
@@ -88,7 +103,7 @@ def create_melspectrogram(path, target_sr, max_duration, hop_length, n_fft, n_me
 
         spectrogram_path = os.path.join(FOLDER_NAME, filename)
 
-        plt.figure(figsize=(10, 4))
+        plt.figure(figsize=FIG_SIZE)
         plt.subplots_adjust(left=0, right=1, top=1, bottom=0)
         plt.axis('off')
         librosa.display.specshow(
@@ -241,8 +256,9 @@ def main():
     test = test[['Filepath', 'Emotion']]
 
     # Fix file paths if needed
-    # train['Filepath'] = train['Filepath'].str.replace('\\', '/')
-    # test['Filepath'] = test['Filepath'].str.replace('\\', '/')
+    train['Filepath'] = train['Filepath'].str.replace('\\', '/')
+    test['Filepath'] = test['Filepath'].str.replace('\\', '/')
+    val['Filepath'] = val['Filepath'].str.replace('\\', '/')
 
     all_paths = pd.concat(
         [train['Filepath'], val['Filepath'], test['Filepath']], ignore_index=True)
