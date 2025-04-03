@@ -115,7 +115,7 @@ class Pipeline:
         best_accuracy = 0
 
         early_stopper = EarlyStopping(
-            path=f'../../models/checkpoints/earlystop_{model_name}.pt', patience=patience)
+            path=f'../../../models/checkpoints/earlystop_{model_name}.pt', patience=patience)
 
         for epoch in range(num_epochs):
             print(f'Epoch {epoch+1}/{num_epochs}')
@@ -143,7 +143,7 @@ class Pipeline:
             if val_accuracy > best_accuracy:
                 best_accuracy = val_accuracy
                 torch.save(model.state_dict(),
-                           f'../../models/weights/best_{model_name}.pt')
+                           f'../../../models/weights/best_{model_name}.pt')
                 checkpoint = {
                     'epoch': epoch + 1,
                     'train_losses': train_losses,
@@ -152,7 +152,7 @@ class Pipeline:
                     'val_accuracies': val_accuracies,
                 }
                 torch.save(
-                    checkpoint, f'../../models/checkpoints/best_{model_name}_checkpoint.pt')
+                    checkpoint, f'../../../models/checkpoints/best_{model_name}_checkpoint.pt')
 
             # Check for early stopping (based on val_loss)
             early_stopper(val_loss, model)
@@ -261,7 +261,7 @@ class Pipeline:
         Pipeline.plot_loss(train_losses, val_losses)
         Pipeline.plot_accuracy(train_accuracies, val_accuracies)
 
-        best_model_path = f'../../models/weights/best_{model_name}.pt'
+        best_model_path = f'../../../models/weights/best_{model_name}.pt'
         all_preds, all_labels = Pipeline.get_predictions(
             model=model,
             testloader=testloader,
