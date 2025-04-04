@@ -8,3 +8,4 @@ wav2vec2/models
 *.pyc
 *.pt
 !class_weights.pt
+transformer_models/models/
