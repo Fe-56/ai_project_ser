@@ -4,7 +4,7 @@ data/mfccs_img/
 data/report.html
 data/checkpoints
 /myenv
-wav2vec2/models
+transformer_models/models
 *.pyc
 *.pt
 !class_weights.pt

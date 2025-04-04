@@ -13,7 +13,7 @@ class SpeechEmotionDatasetDynamicPad(Dataset):
         return len(self.df)
 
     def __getitem__(self, idx):
-        audio_path = '../data/' + self.df.iloc[idx]['Filepath']
+        audio_path = '../../data/' + self.df.iloc[idx]['Filepath']
         label = self.df.iloc[idx]['Emotion']
 
         # Load audio file
