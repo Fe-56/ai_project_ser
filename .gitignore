@@ -8,3 +8,4 @@ transformer_models/models
 *.pyc
 *.pt
 !class_weights.pt
+transformer_models/models/
