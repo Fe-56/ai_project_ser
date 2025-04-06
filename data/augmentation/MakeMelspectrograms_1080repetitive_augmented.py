@@ -159,7 +159,7 @@ def get_all_checkpoint_results(checkpoint_dir='checkpoints'):
 def create_melspectrograms_in_batches(paths, max_duration, batch_size=BATCH_SIZE, n_processes=NUM_PROCESSES, resume=True):
     """Create melspectrograms in batches with checkpointing"""
     if n_processes is None:
-        n_processes = max(1, int(cpu_count() * 0.75))
+        n_processes = max(1, int(cpu_count() * 0.90))
 
     print(f"Using {n_processes} processes")
 
