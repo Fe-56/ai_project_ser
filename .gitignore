@@ -12,3 +12,4 @@ transformer_models/models/
 data/augmentation/augmented_noise/
 data/augmentation/augmented_time/
 data/augmentation/augmented_pitch/
+data/augmentation/checkpoints/
