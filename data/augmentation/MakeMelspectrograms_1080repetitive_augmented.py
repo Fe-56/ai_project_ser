@@ -29,7 +29,7 @@ WINDOW_SIZE = 2048  # Window size (samples)
 # The resolution of the mel spectrogram image (multiply by 100)
 FIG_SIZE = (19.2, 10.8)
 SAVE_CSV = True
-FOLDER_NAME = 'melspectrograms_1080repetitive_augmented'
+FOLDER_NAME = 'melspectrograms'
 
 # Create necessary directories
 os.makedirs(FOLDER_NAME, exist_ok=True)
