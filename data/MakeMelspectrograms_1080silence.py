@@ -14,10 +14,10 @@ import functools
 
 # Set parameters for parallel and batch processing with checkpoints
 NUM_PROCESSES = None
-BATCH_SIZE = 1000
+BATCH_SIZE = 500
 
 # Set consistent audio processing parameters
-TARGET_SR = 16000  # Target sample rate
+TARGET_SR = 22050  # Target sample rate
 N_FFT = 2048  # FFT window size
 HOP_LENGTH = 512  # Hop length (samples)
 N_MELS = 224  # Number of mel bands, and we eventually want to resize to 224x224
@@ -38,29 +38,17 @@ os.makedirs(FOLDER_NAME, exist_ok=True)
 os.makedirs('checkpoints', exist_ok=True)
 
 
-# Find max audio duration to pad all audios to the same length
-def find_max_duration(paths):
-    max_duration = 0
-    for path in tqdm(paths, desc="Finding max duration"):
-        try:
-            tag = TinyTag.get(path)
-            max_duration = max(max_duration, tag.duration)
-        except Exception as e:
-            print(f"Error processing {path}: {e}")
-    return max_duration
-
-
 # Function to process a single file
 def create_melspectrogram(path, target_sr, n_fft, n_mels, fmin, fmax, power, window_type):
     try:
         # Load audio file and resample
         y, sr = librosa.load(path, sr=target_sr)
 
-        # Silence removal
-        y, _ = librosa.effects.trim(y, top_db=SILENCE_TRESHOLD)
-
         # Normalize audio
         y = librosa.util.normalize(y)
+
+        # Silence removal
+        y, _ = librosa.effects.trim(y, top_db=SILENCE_TRESHOLD)
 
         # Adaptive hop length
         num_samples = len(y)
@@ -242,11 +230,6 @@ def main():
     train['Filepath'] = train['Filepath'].str.replace('\\', '/')
     test['Filepath'] = test['Filepath'].str.replace('\\', '/')
     val['Filepath'] = val['Filepath'].str.replace('\\', '/')
-
-    all_paths = pd.concat(
-        [train['Filepath'], val['Filepath'], test['Filepath']], ignore_index=True)
-    max_duration = find_max_duration(all_paths)
-    print(f"Maximum duration of audio: {max_duration}s")
 
     # Generate melspectrograms for the train set
     # Get the list of paths to process

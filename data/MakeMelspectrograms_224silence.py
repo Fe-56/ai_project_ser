@@ -4,7 +4,6 @@ import numpy as np
 import matplotlib.pyplot as plt
 import librosa
 import librosa.display
-from PIL import Image
 from tinytag import TinyTag
 from tqdm import tqdm
 from multiprocessing import Pool, cpu_count
@@ -12,29 +11,28 @@ import traceback
 import pickle
 import time
 import functools
-import torch
-import torch.nn.functional as F
 
 # Set parameters for parallel and batch processing with checkpoints
 NUM_PROCESSES = None
 BATCH_SIZE = 1000
 
 # Set consistent audio processing parameters
-TARGET_SR = 16000  # Target sample rate
+TARGET_SR = 22050  # Target sample rate
 N_FFT = 2048  # FFT window size
 HOP_LENGTH = 512  # Hop length (samples)
-N_MELS = 128  # Number of mel bands
+N_MELS = 224  # Number of mel bands
 FMIN = 20  # Minimum frequency
 FMAX = 8000  # Maximum frequency
 POWER = 2.0  # Power for mel spectrogram (2.0 = power spectrogram)
 WINDOW_TYPE = 'hann'  # Window function type
 WINDOW_SIZE = 2048  # Window size (samples)
 # The resolution of the mel spectrogram image (multiply by 100)
-FIG_SIZE = (17.92, 17.92)
+FIG_SIZE = (2.24, 2.24)
 SAVE_CSV = False
 FOLDER_NAME = 'melspectrograms_224silence'
 # In dB, where any portion of the speech signal softer than this value will be considered as silence
 SILENCE_TRESHOLD = 20
+
 
 # Create necessary directories
 os.makedirs(FOLDER_NAME, exist_ok=True)
@@ -54,69 +52,59 @@ def find_max_duration(paths):
 
 
 # Function to process a single file
-def create_melspectrogram(path, target_sr, hop_length, n_fft, n_mels, fmin, fmax, power, window_type):
+def create_melspectrogram(path, target_sr, n_fft, n_mels, fmin, fmax, power, window_type):
     try:
-        # Load and resample
+        # Load audio file and resample
         y, sr = librosa.load(path, sr=target_sr)
+
+        # Normalize audio
+        y = librosa.util.normalize(y)
 
         # Silence removal
         y, _ = librosa.effects.trim(y, top_db=SILENCE_TRESHOLD)
 
-        # Normalize amplitude
-        y = librosa.util.normalize(y)
+        # Adaptive hop length
+        num_samples = len(y)
+        hop_length = num_samples // 224  # Eventually want to resize to 224x224
 
-        # Mel spectrogram
-        melspec = librosa.feature.melspectrogram(
-            y=y, sr=sr,
-            n_fft=n_fft, hop_length=hop_length,
-            n_mels=n_mels, fmin=fmin, fmax=fmax,
-            power=power, window=window_type
+        # Generate mel spectrogram with consistent parameters
+        melspectrogram = librosa.feature.melspectrogram(
+            y=y,
+            sr=sr,
+            n_fft=n_fft,
+            hop_length=hop_length,
+            n_mels=n_mels,
+            fmin=fmin,
+            fmax=fmax,
+            power=power,
+            window=window_type
         )
-        melspec_db = librosa.power_to_db(melspec, ref=np.max)
+        melspectrogramdb = librosa.power_to_db(melspectrogram, ref=np.max)
 
-        # File naming
-        filename = os.path.basename(path).replace(
-            '.wav', '_melspectrogram.png').replace('.mp4', '_melspectrogram.png')
-        highres_path = os.path.join(FOLDER_NAME, 'highres_' + filename)
-        final_path = os.path.join(FOLDER_NAME, filename)
+        filename = os.path.basename(path)
+        if filename.endswith('.wav'):
+            filename = filename.replace('.wav', '_melspectrogram.png')
+        elif filename.endswith('.mp4'):
+            filename = filename.replace('.mp4', '_melspectrogram.png')
 
-        # High-resolution spectrogram image (1792x1792)
+        spectrogram_path = os.path.join(FOLDER_NAME, filename)
+
         plt.figure(figsize=FIG_SIZE, dpi=100)
-        plt.axis('off')
         plt.subplots_adjust(left=0, right=1, top=1, bottom=0)
-        librosa.display.specshow(melspec_db, sr=sr, hop_length=hop_length,
-                                 x_axis='time', y_axis='mel', fmin=fmin, fmax=fmax)
-        plt.savefig(highres_path, bbox_inches='tight', pad_inches=0)
+        plt.axis('off')
+        librosa.display.specshow(
+            melspectrogramdb,
+            sr=sr,
+            hop_length=hop_length,
+            x_axis='time',
+            y_axis='mel',
+            fmin=fmin,
+            fmax=fmax
+        )
+        plt.savefig(spectrogram_path, bbox_inches='tight', pad_inches=0)
         plt.close()
 
-        # Load image as RGB
-        img = Image.open(highres_path).convert('RGB')
-        img_array = np.asarray(img).astype(np.float32) / \
-            255.0  # Normalization of pixels from [0, 255] to [0, 1]
-
-        # Convert to PyTorch tensor: [1, 3, H, W]
-        tensor = torch.tensor(img_array).permute(
-            2, 0, 1).unsqueeze(0)  # [C, H, W] → [1, C, H, W]
-
-        # Compute pooling kernel size to downscale to 224×224
-        _, _, H, W = tensor.shape
-        kernel_size = (H // 224, W // 224)
-
-        # Apply average pooling
-        pooled = F.avg_pool2d(tensor, kernel_size=kernel_size,
-                              stride=kernel_size)  # [1, 3, 224, 224]
-
-        # Convert back to image
-        pooled_np = pooled.squeeze(0).permute(
-            1, 2, 0).numpy()  # [224, 224, 3], values in [0, 1]
-        img_out = Image.fromarray((pooled_np * 255).astype(np.uint8))
-        img_out.save(final_path)
-
-        # Delete the 1920x1080 image
-        os.remove(highres_path)
-
-        return {'path': path, 'spectrogram_path': final_path, 'status': 'success'}
-
+        return {'path': path, 'spectrogram_path': spectrogram_path, 'status': 'success'}
     except Exception as e:
         error_msg = f"Error processing {path}: {str(e)}\n{traceback.format_exc()}"
         print(error_msg)
@@ -155,7 +143,7 @@ def get_all_checkpoint_results(checkpoint_dir='checkpoints'):
     return all_results
 
 
-def create_melspectrograms_in_batches(paths, batch_size=BATCH_SIZE, n_processes=NUM_PROCESSES, resume=True, hop_length=HOP_LENGTH):
+def create_melspectrograms_in_batches(paths, batch_size=BATCH_SIZE, n_processes=NUM_PROCESSES, resume=True):
     """Create melspectrograms in batches with checkpointing"""
     if n_processes is None:
         n_processes = max(1, int(cpu_count() * 0.75))
@@ -189,7 +177,6 @@ def create_melspectrograms_in_batches(paths, batch_size=BATCH_SIZE, n_processes=
     process_func = functools.partial(
         create_melspectrogram,
         target_sr=TARGET_SR,
-        hop_length=hop_length,
         n_fft=N_FFT,
         n_mels=N_MELS,
         fmin=FMIN,
@@ -235,8 +222,8 @@ def main():
     print("\nMel Spectrogram Parameters:")
     print(f"Sample Rate: {TARGET_SR} Hz")
     print(f"FFT Window Size: {N_FFT}")
-    print(
-        f"Hop Length: {HOP_LENGTH} samples ({HOP_LENGTH/TARGET_SR*1000:.1f} ms)")
+    # print(
+    #     f"Hop Length: {HOP_LENGTH} samples ({HOP_LENGTH/TARGET_SR*1000:.1f} ms)")
     print(f"Window Type: {WINDOW_TYPE}")
     print(f"Mel Bands: {N_MELS}")
     print(f"Frequency Range: {FMIN} Hz - {FMAX} Hz")
@@ -257,11 +244,6 @@ def main():
     test['Filepath'] = test['Filepath'].str.replace('\\', '/')
     val['Filepath'] = val['Filepath'].str.replace('\\', '/')
 
-    all_paths = pd.concat(
-        [train['Filepath'], val['Filepath'], test['Filepath']], ignore_index=True)
-    max_duration = find_max_duration(all_paths)
-    print(f"Maximum duration of audio: {max_duration}s")
-
     # Generate melspectrograms for the train set
     # Get the list of paths to process
     train_paths = train['Filepath'].tolist()
@@ -273,7 +255,6 @@ def main():
         batch_size=BATCH_SIZE,  # Adjust based on your dataset size and memory constraints
         n_processes=NUM_PROCESSES,  # Will use 75% of available cores by default
         resume=True,  # Set to False to start fresh and ignore checkpoints
-        hop_length=HOP_LENGTH
     )
 
     if SAVE_CSV:
@@ -306,7 +287,6 @@ def main():
         batch_size=BATCH_SIZE,  # Adjust based on your dataset size and memory constraints
         n_processes=NUM_PROCESSES,  # Will use 75% of available cores by default
         resume=True,  # Set to False to start fresh and ignore checkpoints
-        hop_length=HOP_LENGTH
     )
 
     if SAVE_CSV:
@@ -341,7 +321,6 @@ def main():
         batch_size=BATCH_SIZE,  # Adjust based on your dataset size and memory constraints
         n_processes=NUM_PROCESSES,  # Will use 75% of available cores by default
         resume=True,  # Set to False to start fresh and ignore checkpoints
-        hop_length=HOP_LENGTH
     )
 
     if SAVE_CSV:
