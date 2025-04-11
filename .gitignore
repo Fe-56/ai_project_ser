@@ -19,3 +19,6 @@ data/augmentation/checkpoints/
 data/augmentation/melspectrograms/
 data/mfccs_delta/
 *.DS_Store
+lightning_logs
+*.db
+checkpoints
