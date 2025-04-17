@@ -35,7 +35,7 @@ def augment_speech(path):
         # Normalize audio
         y = librosa.util.normalize(y)
 
-        y = OfflineDataAugmentation.pitch_scale(
+        y = OfflineDataAugmentation.pitch_shift(
             y, sr=sr, n_steps_range=N_STEPS_RANGE)
 
         filename = os.path.basename(path)

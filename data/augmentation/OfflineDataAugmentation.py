@@ -24,7 +24,7 @@ class OfflineDataAugmentation:
 
         return librosa.effects.time_stretch(signal, rate=stretch_rate)
 
-    def pitch_scale(signal, sr, n_steps_range=(-2, 2)):
+    def pitch_shift(signal, sr, n_steps_range=(-2, 2)):
         # Sample a random noise factor from specified range
         n_steps = random.uniform(
             n_steps_range[0], n_steps_range[1])
