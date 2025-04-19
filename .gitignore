@@ -1,4 +1,6 @@
 data/dataset/
+data/temp-features/
+data/features/
 data/melspectrograms/
 data/mfccs_img/
 data/report.html
@@ -16,3 +18,7 @@ data/augmentation/augmented_pitch/
 data/augmentation/checkpoints/
 data/augmentation/melspectrograms/
 data/mfccs_delta/
+*.DS_Store
+lightning_logs
+*.db
+checkpoints
