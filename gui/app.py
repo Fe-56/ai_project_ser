@@ -77,12 +77,19 @@ def predict():
         preds = torch.argmax(meta_outputs, dim=1)
 
     predictions = []
-    for idx, (pred_id, prob_vec) in enumerate(zip(preds, probs)):
+    for idx, prob_vec in enumerate(probs):
+        top_probs, top_indices = torch.topk(prob_vec, k=3)
+        top_emotions = []
+        for i in range(3):
+            top_emotions.append({
+                "emotion": labelmap[top_indices[i].item()],
+                "confidence": round(top_probs[i].item() * 100, 2)
+            })
+
         predictions.append({
             "start_time": idx * 5,
             "end_time": (idx + 1) * 5,
-            "emotion": labelmap[pred_id.item()],
-            "confidence": round(prob_vec[pred_id].item() * 100, 2)
+            "top_emotions": top_emotions
         })
     print("predictions:", predictions)
 

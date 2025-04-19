@@ -147,10 +147,15 @@
         document.getElementById('segment-list-content').innerHTML =
             "<h5>Full Emotion Predictions</h5><ul class='list-unstyled'>" +
             predictions
-                .map(
-                (p) =>
-                    `<li>${p.start_time}s – ${p.end_time}s: <strong>${p.emotion}</strong> (${p.confidence.toFixed(1)}%)</li>`
-                )
+                .map((p) => {
+                const emotionList = p.top_emotions
+                    .map(
+                    (e, idx) =>
+                        `<span style="font-weight: ${idx === 0 ? 'bold' : 'normal'}">${e.emotion} (${e.confidence.toFixed(1)}%)</span>`
+                    )
+                    .join(', ');
+                return `<li>${p.start_time}s – ${p.end_time}s: ${emotionList}</li>`;
+                })
                 .join('') +
             '</ul>';
 
@@ -178,18 +183,22 @@
               currentTime >= pred.start_time &&
               currentTime < pred.end_time
           );
-          if (currentSegment) {
-            currentEmotion.textContent = `${currentSegment.emotion} (${currentSegment.confidence.toFixed(1)}%)`;
-            
-            const confidence = currentSegment.confidence;
-            if (confidence > 80) {
-              currentEmotion.style.color = 'green';
-            } else if (confidence > 60) {
-              currentEmotion.style.color = 'orange';
-            } else {
-              currentEmotion.style.color = 'red';
+          if (currentSegment && currentSegment.top_emotions) {
+            const emotionText = currentSegment.top_emotions
+                .map((e, idx) => {
+                const color =
+                    e.confidence > 80
+                    ? 'green'
+                    : e.confidence > 60
+                    ? 'orange'
+                    : 'red';
+                return `<span style="color:${color}; font-weight:${idx === 0 ? 'bold' : 'normal'}">${e.emotion} (${e.confidence.toFixed(1)}%)</span>`;
+                })
+                .join(' | ');
+
+            currentEmotion.innerHTML = emotionText;
             }
-          }
+
         });
 
         playButton.addEventListener('click', () => {
