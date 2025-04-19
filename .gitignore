@@ -22,3 +22,5 @@ data/mfccs_delta/
 lightning_logs
 *.db
 checkpoints
+gui/checkpoint-22112
+gui/checkpoint-55280
