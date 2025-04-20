@@ -9,9 +9,14 @@ from data.feature_extraction import preprocess_features
 from ffnn.nn_classifier import NNClassifier
 from functools import partial
 
+_prepare_data_cache = {}
+
 # n_features_select = 200
 
 def prepare_data(num_features):
+    if num_features in _prepare_data_cache:
+        return _prepare_data_cache[num_features]
+
     res = preprocess_features.main(num_features)
     label_encoder = res['label_encoder']
 
@@ -39,7 +44,10 @@ def prepare_data(num_features):
     val_loader = DataLoader(val_ds, batch_size=32)
     test_loader = DataLoader(test_ds, batch_size=32)
 
-    return train_loader, val_loader, test_loader, len(label_encoder.classes_), class_weights_tensor, label_encoder
+    result = train_loader, val_loader, test_loader, len(label_encoder.classes_), class_weights_tensor, label_encoder
+
+    _prepare_data_cache[num_features] = result
+    return result
 
 def objective(trial):
     # Tune feature count: 100 to 1000 in steps of 100
