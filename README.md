@@ -2,6 +2,8 @@
 
 This project provides a simple graphical interface for uploading `.mp3` or `.wav` speech audio files and predicting the emotional content of their five-second segments.
 
+Read our report [here](https://github.com/Fe-56/ai_project_ser/blob/main/Final%20Report.pdf).
+
 ## ⬇️ Download the Model
 First and foremost, download the model weights. If not, the GUI will not analyze your uploaded speech audio file.
 
@@ -85,6 +87,17 @@ When you are done:
 ```bash
 deactivate
 ```
+
+---
+
+## ⬇️ Download the Dataset
+
+If you wish to replicate our experiments and/or work on the combined dataset we worked on, you may download it. 
+
+1. Download `dataset.zip` [here]([url](https://sutdapac.sharepoint.com/:u:/s/50.021AIProject/Ec2AnDYuETpLtoOz9oHT0YsBsjTp8NCAVZAuuqfVsBgY0Q?e=CKfnof)).
+2. Move `dataset.zip` to the `data/` directory, if it is not downloaded and saved there already. All our data preprocessing notebooks assume that `dataset.zip` is located there.
+3. Extract the contents of `dataset.zip` into the current `data/` directory.
+4. You may delete `dataset.zip`.
 
 ---
 
