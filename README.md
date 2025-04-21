@@ -5,10 +5,10 @@ This project provides a simple graphical interface for uploading `.mp3` or `.wav
 ## ⬇️ Download the Model
 First and foremost, download the model weights. If not, the GUI will not analyze your uploaded speech audio file.
 
-1. Download `final_model.zip` from our [Microsoft Teams](https://sutdapac.sharepoint.com/:u:/s/50.021AIProject/EcqKux4dNiZCpjlTkfkeMI0BTeFZDb3uAgEciedQvrPwHQ?e=HkR1JO).
-2. Ensure `final_model.zip` is in the `gui/` directory.
+1. Download `final_model.zip` from our [Microsoft Teams](https://sutdapac.sharepoint.com/:u:/s/50.021AIProject/EUcB6OqFi-NPi7iuuMogTkQBjCE2dFcsLpUm-lMFHFr1yg?e=uIOGGe).
+2. Move `final_model.zip` to the `gui/` directory, if it is not downloaded and saved there already.
 3. Extract the contents of `final_model.zip` into the current `gui/` directory.
-4. Once the extraction is complete, there should be `checkpoint-22112/` and `checkpoint-55280/`. These folders contain the model weights.
+4. Once the extraction is complete, there should be `best_meta_ffnn_model.pt`, `checkpoint-22112/` and `checkpoint-55280/`. These files and folders contain the model weights.
 5. You may delete `final_model.zip`.
 
 ---
