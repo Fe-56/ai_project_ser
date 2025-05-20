@@ -49,12 +49,10 @@ def preprocess_audio(audio_path):
 @app.route('/predict_emotion', methods=['POST'])
 def predict():
     print("inside predict")
-    if 'audio_file' not in request.files:
-        return jsonify({'error': 'No file part'}), 400
+    audio_file = request.files.get('audio_file') or request.files.get('audio')
 
-    audio_file = request.files['audio_file']
-    if audio_file.filename == '':
-        return jsonify({'error': 'No selected file'}), 400
+    if audio_file is None or audio_file.filename == '':
+        return jsonify({'error': 'No audio file provided'}), 400
 
     with tempfile.NamedTemporaryFile(delete=False, suffix=".wav") as temp_file:
         temp_file.write(audio_file.read())

@@ -64,12 +64,8 @@
     }
 
     @keyframes spin {
-      0% {
-        transform: rotate(0deg);
-      }
-      100% {
-        transform: rotate(360deg);
-      }
+      0% { transform: rotate(0deg); }
+      100% { transform: rotate(360deg); }
     }
   </style>
 </head>
@@ -79,9 +75,16 @@
 
     <div class="card p-4 shadow-sm mx-auto" style="max-width: 500px;">
       <form id="audio-form">
+        <div class="mb-3 text-center">
+          <button type="button" id="start-recording" class="button">Start Recording</button>
+          <button type="button" id="stop-recording" class="button" disabled>Stop Recording</button>
+        </div>
+        <div class="mb-3 text-center" id="preview-player" style="display: none;">
+          <audio controls id="recorded-audio" style="width: 100%;"></audio>
+        </div>
         <div class="mb-3">
           <label for="audio-file" class="form-label">Upload Audio File</label>
-          <input type="file" class="form-control" id="audio-file" name="audio_file" accept="audio/*" required />
+          <input type="file" class="form-control" id="audio-file" name="audio_file" accept="audio/*" />
         </div>
         <div class="d-grid gap-2">
           <button type="submit" class="button">Submit</button>
@@ -115,6 +118,8 @@
     const playButton = document.getElementById('play-button');
     const currentEmotion = document.getElementById('current-emotion');
     const segmentList = document.getElementById('segment-list');
+    const previewPlayer = document.getElementById('preview-player');
+    const recordedAudio = document.getElementById('recorded-audio');
 
     let audioFile;
     let predictions = [];
@@ -122,98 +127,145 @@
 
     audioFileInput.addEventListener('change', (event) => {
       audioFile = event.target.files[0];
+      previewPlayer.style.display = 'none';
     });
 
     audioForm.addEventListener('submit', async (event) => {
       event.preventDefault();
-      if (!audioFile) return;
+
+      if (!audioFile) {
+        alert('Please upload or record an audio file before submitting.');
+        return;
+      }
+
+      const submitButton = audioForm.querySelector('button[type="submit"]');
+      submitButton.disabled = true;
 
       loader.style.display = 'block';
-      if (waveSurfer) waveSurfer.destroy();
+
+      // Destroy existing WaveSurfer instance and clear waveform container
+      if (waveSurfer) {
+        waveSurfer.destroy();
+        waveSurfer = null;
+        document.getElementById('waveform').innerHTML = ''; // Clear waveform div content
+      }
 
       const formData = new FormData();
       formData.append('audio_file', audioFile);
 
-      const response = await fetch('http://127.0.0.1:5000/predict_emotion', {
-        method: 'POST',
-        body: formData,
-      });
-      console.log("response: ", response)
+      try {
+        const response = await fetch('http://127.0.0.1:5000/predict_emotion', {
+          method: 'POST',
+          body: formData,
+        });
 
-      if (response.ok) {
-        const data = await response.json();
-        predictions = data.predictions;
-        
-        document.getElementById('segment-list-content').innerHTML =
+        if (response.ok) {
+          const data = await response.json();
+          predictions = data.predictions;
+
+          document.getElementById('segment-list-content').innerHTML =
             "<h5>Full Emotion Predictions</h5><ul class='list-unstyled'>" +
-            predictions
-                .map((p) => {
-                const emotionList = p.top_emotions
-                    .map(
-                    (e, idx) =>
-                        `<span style="font-weight: ${idx === 0 ? 'bold' : 'normal'}">${e.emotion} (${e.confidence.toFixed(1)}%)</span>`
-                    )
-                    .join(', ');
-                return `<li>${p.start_time}s – ${p.end_time}s: ${emotionList}</li>`;
-                })
-                .join('') +
-            '</ul>';
+            predictions.map((p) => {
+              const emotionList = p.top_emotions
+                .map((e, idx) =>
+                  `<span style="font-weight: ${idx === 0 ? 'bold' : 'normal'}">${e.emotion} (${e.confidence.toFixed(1)}%)</span>`
+                )
+                .join(', ');
+              return `<li>${p.start_time}s – ${p.end_time}s: ${emotionList}</li>`;
+            }).join('') + '</ul>';
 
-        waveSurfer = WaveSurfer.create({
-          container: '#waveform',
-          waveColor: '#87CEEB',
-          progressColor: '#B4E197',
-          backend: 'MediaElement',
-          barWidth: 2,
-          height: 150,
-          responsive: true,
-        });
+          waveSurfer = WaveSurfer.create({
+            container: '#waveform',
+            waveColor: '#87CEEB',
+            progressColor: '#B4E197',
+            backend: 'MediaElement',
+            barWidth: 2,
+            height: 150,
+            responsive: true,
+          });
 
-        const audioURL = URL.createObjectURL(audioFile);
-        waveSurfer.load(audioURL);
-        waveSurfer.on('ready', () => {
-          audioPlayerContainer.style.display = 'block';
-          loader.style.display = 'none';
-        });
+          const audioURL = URL.createObjectURL(audioFile);
+          waveSurfer.load(audioURL);
 
-        waveSurfer.on('audioprocess', () => {
-          const currentTime = waveSurfer.getCurrentTime();
-          const currentSegment = predictions.find(
-            (pred) =>
-              currentTime >= pred.start_time &&
-              currentTime < pred.end_time
-          );
-          if (currentSegment && currentSegment.top_emotions) {
-            const emotionText = currentSegment.top_emotions
-                .map((e, idx) => {
-                const color =
-                    e.confidence > 80
-                    ? 'green'
-                    : e.confidence > 60
-                    ? 'orange'
-                    : 'red';
-                return `<span style="color:${color}; font-weight:${idx === 0 ? 'bold' : 'normal'}">${e.emotion} (${e.confidence.toFixed(1)}%)</span>`;
-                })
-                .join(' | ');
-
-            currentEmotion.innerHTML = emotionText;
-            }
-
-        });
-
-        playButton.addEventListener('click', () => {
-          if (waveSurfer.isPlaying()) {
-            waveSurfer.pause();
+          waveSurfer.on('ready', () => {
+            audioPlayerContainer.style.display = 'block';
+            loader.style.display = 'none';
             playButton.textContent = 'Play';
-          } else {
-            waveSurfer.play();
-            playButton.textContent = 'Pause';
-          }
-        });
-      } else {
-        loader.style.display = 'none';
-        alert('Error: Could not process audio');
-      }
+          });
+
+          waveSurfer.on('audioprocess', () => {
+            const currentTime = waveSurfer.getCurrentTime();
+            const currentSegment = predictions.find(
+              (pred) => currentTime >= pred.start_time && currentTime < pred.end_time
+            );
+            if (currentSegment && currentSegment.top_emotions) {
+              const emotionText = currentSegment.top_emotions.map((e, idx) => {
+                const color = e.confidence > 80 ? 'green' : e.confidence > 60 ? 'orange' : 'red';
+                return `<span style="color:${color}; font-weight:${idx === 0 ? 'bold' : 'normal'}">${e.emotion} (${e.confidence.toFixed(1)}%)</span>`;
+              }).join(' | ');
+              currentEmotion.innerHTML = emotionText;
+            }
+          });
+
+      playButton.onclick = () => {
+        if (waveSurfer.isPlaying()) {
+          waveSurfer.pause();
+          playButton.textContent = 'Play';
+        } else {
+          waveSurfer.play();
+          playButton.textContent = 'Pause';
+        }
+      };
+    } else {
+      loader.style.display = 'none';
+      alert('Error: Could not process audio');
+    }
+  } catch (error) {
+    loader.style.display = 'none';
+    alert('Network or server error occurred.');
+  } finally {
+    submitButton.disabled = false;
+  }
+});
+
+
+
+    let mediaRecorder;
+    let recordedChunks = [];
+    let mediaStream;
+
+    const startRecordingBtn = document.getElementById('start-recording');
+    const stopRecordingBtn = document.getElementById('stop-recording');
+
+    startRecordingBtn.addEventListener('click', async () => {
+      mediaStream = await navigator.mediaDevices.getUserMedia({ audio: true });
+      mediaRecorder = new MediaRecorder(mediaStream);
+      recordedChunks = [];
+
+      mediaRecorder.ondataavailable = (event) => {
+        if (event.data.size > 0) recordedChunks.push(event.data);
+      };
+
+      mediaRecorder.onstop = () => {
+        const blob = new Blob(recordedChunks, { type: 'audio/webm' });
+        const file = new File([blob], 'recorded_audio.webm', { type: 'audio/webm' });
+        audioFile = file;
+        audioFileInput.value = '';
+        const audioURL = URL.createObjectURL(blob);
+        recordedAudio.src = audioURL;
+        previewPlayer.style.display = 'block';
+        mediaStream.getTracks().forEach((track) => track.stop()); // important!
+      };
+
+      mediaRecorder.start();
+      startRecordingBtn.disabled = true;
+      stopRecordingBtn.disabled = false;
+    });
+
+    stopRecordingBtn.addEventListener('click', () => {
+      mediaRecorder.stop();
+      startRecordingBtn.disabled = false;
+      stopRecordingBtn.disabled = true;
     });
   </script>
 </body>
